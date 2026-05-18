@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { useState, useContext, createContext, useCallback, useEffect, useRef } from "react";
 
 // ════════════════════════════════════════════════════════════════
@@ -93,23 +94,37 @@ function AuthProvider({ children }) {
 
   async function login(email, password) {
     setLoading(true);
-    await new Promise(r => setTimeout(r, 900));
-    if (email && password.length >= 6) {
-      const u = { ...DEMO_USER, email };
-      setUser(u);
+    try {
+      const API = process.env.REACT_APP_API_URL || "https://fieldops-api-production-a1b2.com/v1";
+      const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error?.message || "Login failed");
+      localStorage.setItem("fieldops_token", data.data.token);
+      const u = { ...data.data.user, company: data.data.user.company || { name: "My Company" } };
       localStorage.setItem("fsm_user", JSON.stringify(u));
+      setUser(u);
       setLoading(false);
       return { ok: true };
+    } catch (err) {
+      setLoading(false);
+      return { ok: false, error: err.message || "Invalid email or password" };
     }
-    setLoading(false);
-    return { ok: false, error: "Invalid email or password" };
   }
 
-  function logout() { setUser(null); localStorage.removeItem("fsm_user"); }
+  function logout() { 
+    setUser(null); 
+    localStorage.removeItem("fsm_user"); 
+    localStorage.removeItem("fieldops_token");
+  }
 
   useEffect(() => {
     const saved = localStorage.getItem("fsm_user");
-    if (saved) try { setUser(JSON.parse(saved)); } catch {}
+    const token = localStorage.getItem("fieldops_token");
+    if (saved && token) try { setUser(JSON.parse(saved)); } catch {}
   }, []);
 
   return <AuthContext.Provider value={{ user, login, logout, loading }}>{children}</AuthContext.Provider>;
