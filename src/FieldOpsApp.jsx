@@ -25,6 +25,46 @@ const GLOBAL_CSS = `
   ::-webkit-scrollbar-track{background:transparent}
   ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:8px}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  /* ── MOBILE ── */
+  @media (max-width: 768px) {
+    .desktop-only { display: none !important; }
+    .mobile-only { display: flex !important; }
+  }
+  @media (min-width: 769px) {
+    .mobile-only { display: none !important; }
+    .desktop-only { display: flex !important; }
+  }
+  .bottom-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 60px;
+    background: var(--nav-bg);
+    border-top: 1px solid var(--nav-border);
+    display: none;
+    align-items: center;
+    justify-content: space-around;
+    z-index: 1000;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .bottom-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    background: none;
+    border: none;
+    color: var(--nav-text);
+    font-size: 10px;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 8px;
+    transition: color .15s;
+    min-width: 52px;
+  }
+  .bottom-nav-btn.active { color: #fff; }
+  .bottom-nav-btn .nav-icon { font-size: 20px; line-height: 1; }
+  .mobile-content { padding-bottom: 70px !important; }
+
   @keyframes spin{to{transform:rotate(360deg)}}
   .fade-in{animation:fadeIn .2s ease both}
   .s1{animation-delay:.05s}.s2{animation-delay:.10s}.s3{animation-delay:.15s}
@@ -636,7 +676,6 @@ function JobsScreen() {
                   {job.status==="en_route" && <Btn small variant="secondary" onClick={()=>handleStatusChange(job.id,"in_progress")}>→ Start Job</Btn>}
                   {job.status==="in_progress" && <Btn small onClick={()=>handleStatusChange(job.id,"completed")}>✓ Complete</Btn>}
                   <Btn small variant="secondary" onClick={()=>setEstimateJob(job)}>📋 Create Estimate</Btn>
-                  <Btn small variant="secondary" onClick={()=>setDetailJob(job)}>📝 Notes & Photos</Btn>
                 </div>
               </Card>
             ))}
