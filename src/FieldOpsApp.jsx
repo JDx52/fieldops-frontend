@@ -908,6 +908,12 @@ function DispatchScreen() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState(new Date().toISOString().slice(0,10));
+  const [techs, setTechs] = useState([]);
+  const [assigning, setAssigning] = useState({});
+
+  useEffect(() => {
+    apiFetch("/users?limit=100").then(d => setTechs(Array.isArray(d)?d:[])).catch(()=>{});
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -917,38 +923,73 @@ function DispatchScreen() {
       .finally(()=>setLoading(false));
   }, [date]);
 
+  async function assignTech(jobId, techId) {
+    if (!techId) return;
+    setAssigning(p=>({...p,[jobId]:true}));
+    try {
+      await apiFetch(`/jobs/${jobId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ technician_ids: [techId] }),
+      });
+      // Refresh dispatch board
+      const d = await apiFetch(`/dispatch?date=${date}`);
+      setData(d);
+    } catch(e) { alert(e.message); }
+    setAssigning(p=>({...p,[jobId]:false}));
+  }
+
   if(loading) return <div style={{ flex:1,display:"flex",alignItems:"center",justifyContent:"center" }}><Spinner /></div>;
 
-  const techs = data?.technicians||[];
+  const dispatchTechs = data?.technicians||[];
   const unassigned = data?.unassigned||[];
 
   return (
     <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
       <div style={{ padding:"12px 20px",background:"var(--surface)",borderBottom:"1px solid var(--border)",display:"flex",gap:12,alignItems:"center" }}>
         <input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{ ...inputStyle,width:"auto",padding:"6px 10px" }} />
-        <span style={{ fontSize:13,color:"var(--text3)" }}>{techs.length} technician{techs.length!==1?"s":""} · {unassigned.length} unassigned</span>
+        <span style={{ fontSize:13,color:"var(--text3)" }}>{dispatchTechs.length} technician{dispatchTechs.length!==1?"s":""} · {unassigned.length} unassigned</span>
       </div>
       <div style={{ flex:1,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10 }}>
-        {techs.length===0 && unassigned.length===0 && (
+        {dispatchTechs.length===0 && unassigned.length===0 && (
           <EmptyState icon="📡" title="No jobs scheduled" desc={`No jobs found for ${fmtDate(date)}`} />
         )}
+
         {unassigned.length>0 && (
           <Card style={{ border:"1px solid var(--red-bd)",overflow:"hidden" }}>
             <div style={{ padding:"10px 16px",background:"var(--red-lt)",borderBottom:"1px solid var(--red-bd)",fontSize:13,fontWeight:600,color:"var(--red)" }}>
               ● Unassigned ({unassigned.length})
             </div>
-            <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:8,padding:10 }}>
+            <div style={{ display:"flex",flexDirection:"column",gap:8,padding:10 }}>
               {unassigned.map(job=>(
                 <div key={job.id} style={{ background:"var(--surface2)",border:"1px solid var(--border)",borderLeft:"3px solid var(--red)",borderRadius:8,padding:"10px 12px" }}>
-                  <div style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:3 }}>{job.job_number}</div>
-                  <div style={{ fontSize:13,fontWeight:600,marginBottom:3 }}>{job.title}</div>
-                  <div style={{ fontSize:11,color:"var(--text3)" }}>{job.customer_name}</div>
+                  <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap" }}>
+                    <div>
+                      <div style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:3 }}>{job.job_number}</div>
+                      <div style={{ fontSize:13,fontWeight:600,marginBottom:3 }}>{job.title}</div>
+                      <div style={{ fontSize:11,color:"var(--text3)" }}>{job.customer_name}</div>
+                    </div>
+                    <div style={{ display:"flex",alignItems:"center",gap:8,flexShrink:0 }}>
+                      <select
+                        defaultValue=""
+                        disabled={assigning[job.id]}
+                        onChange={e=>assignTech(job.id, e.target.value)}
+                        style={{ ...inputStyle,width:"auto",padding:"5px 10px",fontSize:12,cursor:"pointer" }}
+                      >
+                        <option value="" disabled>Assign to…</option>
+                        {techs.map(t=>(
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                      {assigning[job.id] && <span style={{ fontSize:11,color:"var(--text3)" }}>Saving…</span>}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           </Card>
         )}
-        {techs.map(tech=>(
+
+        {dispatchTechs.map(tech=>(
           <Card key={tech.id} style={{ overflow:"hidden" }}>
             <div style={{ padding:"10px 16px",background:"var(--surface2)",borderBottom:tech.jobs?.length?"1px solid var(--border)":"none",display:"flex",alignItems:"center",gap:10 }}>
               <div style={{ width:32,height:32,borderRadius:"50%",background:"var(--blue-lt)",border:"1px solid var(--blue-bd)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"var(--blue)",flexShrink:0 }}>
