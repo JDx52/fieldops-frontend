@@ -1,5 +1,5 @@
 /* eslint-disable */
-/* eslint-disable */ // v3.2 team
+// v3.1 mobile-first
 import { useState, useContext, createContext, useCallback, useEffect } from "react";
 
 // ════════════════════════════════════════════════════════════════
@@ -1430,14 +1430,14 @@ function JobDetailModal({ job, onClose, onUpdated }) {
 // ════════════════════════════════════════════════════════════════
 //  APP SHELL
 // ════════════════════════════════════════════════════════════════
-const PAGE_TITLES_MAP = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/jobs":"Jobs","/invoices":"Invoices"};
+const PAGE_TITLES_MAP = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/jobs":"Jobs","/invoices":"Invoices","/team":"Team"};
 
 const MOBILE_NAV = [
   { id:"/",          icon:"⊞",  label:"Home"      },
   { id:"/jobs",      icon:"🔧", label:"Jobs"      },
   { id:"/customers", icon:"👥", label:"Customers" },
   { id:"/invoices",  icon:"📄", label:"Invoices"  },
-  { id:"/dispatch",  icon:"📡", label:"Dispatch"  },
+  { id:"/team",      icon:"👷", label:"Team"      },
 ];
 
 function AppShell() {
@@ -1457,6 +1457,7 @@ function AppShell() {
     "/customers": <CustomersScreen />,
     "/invoices": <InvoicesScreen />,
     "/jobs": <JobsScreen />,
+    "/team": <TeamScreen />,
   };
 
   if (isMobile) {
