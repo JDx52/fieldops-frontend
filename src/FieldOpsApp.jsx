@@ -1284,9 +1284,26 @@ function JobDetailModal({ job, onClose, onUpdated }) {
 // ════════════════════════════════════════════════════════════════
 //  APP SHELL
 // ════════════════════════════════════════════════════════════════
+const PAGE_TITLES_MAP = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/jobs":"Jobs","/invoices":"Invoices"};
+
+const MOBILE_NAV = [
+  { id:"/",          icon:"⊞",  label:"Home"      },
+  { id:"/jobs",      icon:"🔧", label:"Jobs"      },
+  { id:"/customers", icon:"👥", label:"Customers" },
+  { id:"/invoices",  icon:"📄", label:"Invoices"  },
+  { id:"/dispatch",  icon:"📡", label:"Dispatch"  },
+];
+
 function AppShell() {
-  const { route } = useRouter();
+  const { route, navigate } = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
 
   const screens = {
     "/": <Dashboard />,
@@ -1295,6 +1312,36 @@ function AppShell() {
     "/invoices": <InvoicesScreen />,
     "/jobs": <JobsScreen />,
   };
+
+  if (isMobile) {
+    return (
+      <div style={{ display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",background:"var(--bg)" }}>
+        {/* Mobile header */}
+        <div style={{ height:52,background:"var(--nav-bg)",borderBottom:"1px solid var(--nav-border)",display:"flex",alignItems:"center",padding:"0 16px",flexShrink:0 }}>
+          <div style={{ display:"flex",alignItems:"center",gap:8,flex:1 }}>
+            <div style={{ width:28,height:28,borderRadius:7,background:"linear-gradient(135deg,#3B82F6,#1D4ED8)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0 }}>⚡</div>
+            <span style={{ fontSize:15,fontFamily:"var(--display)",fontWeight:800,color:"#fff" }}>FieldOps</span>
+          </div>
+          <span style={{ fontSize:13,fontFamily:"var(--display)",fontWeight:600,color:"#8899BB" }}>{PAGE_TITLES_MAP[route]||""}</span>
+        </div>
+
+        {/* Content */}
+        <div style={{ flex:1,overflow:"auto",display:"flex",flexDirection:"column",paddingBottom:60 }}>
+          {screens[route]||screens["/"]}
+        </div>
+
+        {/* Bottom nav */}
+        <div style={{ position:"fixed",bottom:0,left:0,right:0,height:60,background:"var(--nav-bg)",borderTop:"1px solid var(--nav-border)",display:"flex",alignItems:"center",justifyContent:"space-around",zIndex:1000 }}>
+          {MOBILE_NAV.map(item=>(
+            <button key={item.id} onClick={()=>navigate(item.id)} style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"none",border:"none",color:route===item.id?"#fff":"var(--nav-text)",cursor:"pointer",padding:"4px 8px",borderRadius:8,minWidth:52,transition:"color .15s" }}>
+              <span style={{ fontSize:22,lineHeight:1 }}>{item.icon}</span>
+              <span style={{ fontSize:9,fontWeight:route===item.id?700:400,letterSpacing:"0.04em",textTransform:"uppercase" }}>{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display:"flex",height:"100vh",overflow:"hidden" }}>
