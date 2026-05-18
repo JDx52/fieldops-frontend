@@ -620,9 +620,9 @@ function JobsScreen() {
                   </div>
                   <Chip status={job.status} />
                 </div>
-                <div style={{ display:"flex",gap:16,fontSize:13,color:"var(--text2)" }}>
+                <div style={{ display:"flex",gap:16,fontSize:13,color:"var(--text2)",flexWrap:"wrap" }}>
                   <span>👤 {job.customer_name}</span>
-                  <span>📍 {job.city}, {job.state}</span>
+                  <span>📍 {job.address_line1 ? `${job.address_line1}, ${job.city}, ${job.state}` : `${job.city}, ${job.state}`}</span>
                   {job.scheduled_start && <span>🕐 {new Date(job.scheduled_start).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>}
                 </div>
                 {["scheduled","in_progress","en_route"].includes(job.status) && (
@@ -668,8 +668,9 @@ function NewJobModal({ onClose, onSave }) {
         customer_id: form.customer_id,
         location_id: form.location_id,
         title: form.title,
-        description: form.description || undefined,
+        description: form.description || "",
         priority: form.priority || "normal",
+        technician_ids: [],
       };
       if(form.scheduled_start) payload.scheduled_start = new Date(form.scheduled_start).toISOString();
       if(form.scheduled_end) payload.scheduled_end = new Date(form.scheduled_end).toISOString();
