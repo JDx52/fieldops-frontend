@@ -426,6 +426,7 @@ function CustomersScreen() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [showNew, setShowNew] = useState(false);
+  const [estimateJob, setEstimateJob] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -574,6 +575,7 @@ function JobsScreen() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
   const [showNew, setShowNew] = useState(false);
+  const [estimateJob, setEstimateJob] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -596,6 +598,7 @@ function JobsScreen() {
   return (
     <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
       {showNew && <NewJobModal onClose={()=>setShowNew(false)} onSave={async(job)=>{ setJobs(p=>[job,...p]); setShowNew(false); }} />}
+      {estimateJob && <NewEstimateModal job={estimateJob} onClose={()=>setEstimateJob(null)} onSave={()=>setEstimateJob(null)} />}
       <div style={{ padding:"12px 20px",background:"var(--surface)",borderBottom:"1px solid var(--border)",display:"flex",gap:8,alignItems:"center" }}>
         <div style={{ display:"flex",gap:4 }}>
           {["all","scheduled","in_progress","en_route","completed"].map(s=>(
@@ -625,13 +628,12 @@ function JobsScreen() {
                   <span>📍 {job.address_line1 ? `${job.address_line1}, ${job.city}, ${job.state}` : `${job.city}, ${job.state}`}</span>
                   {job.scheduled_start && <span>🕐 {new Date(job.scheduled_start).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>}
                 </div>
-                {["scheduled","in_progress","en_route"].includes(job.status) && (
-                  <div style={{ marginTop:10,display:"flex",gap:6 }}>
-                    {job.status==="scheduled" && <Btn small variant="secondary" onClick={()=>handleStatusChange(job.id,"en_route")}>→ En Route</Btn>}
-                    {job.status==="en_route" && <Btn small variant="secondary" onClick={()=>handleStatusChange(job.id,"in_progress")}>→ Start Job</Btn>}
-                    {job.status==="in_progress" && <Btn small onClick={()=>handleStatusChange(job.id,"completed")}>✓ Complete</Btn>}
-                  </div>
-                )}
+                <div style={{ marginTop:10,display:"flex",gap:6,flexWrap:"wrap" }}>
+                  {job.status==="scheduled" && <Btn small variant="secondary" onClick={()=>handleStatusChange(job.id,"en_route")}>→ En Route</Btn>}
+                  {job.status==="en_route" && <Btn small variant="secondary" onClick={()=>handleStatusChange(job.id,"in_progress")}>→ Start Job</Btn>}
+                  {job.status==="in_progress" && <Btn small onClick={()=>handleStatusChange(job.id,"completed")}>✓ Complete</Btn>}
+                  <Btn small variant="secondary" onClick={()=>setEstimateJob(job)}>📋 Create Estimate</Btn>
+                </div>
               </Card>
             ))}
           </div>
@@ -898,6 +900,176 @@ function InvoicesScreen() {
           <EmptyState icon="📄" title="Select an invoice" desc="Click an invoice on the left to view details" />
         )}
       </div>
+    </div>
+  );
+}
+
+
+// ════════════════════════════════════════════════════════════════
+//  ESTIMATE MODAL
+// ════════════════════════════════════════════════════════════════
+function NewEstimateModal({ job, onClose, onSave }) {
+  const [items, setItems] = useState([
+    { id:1, name:"Diagnostic Fee", description:"", qty:1, unit_price:89, total:89 },
+  ]);
+  const [taxRate, setTaxRate] = useState(8.75);
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function addItem() {
+    setItems(p=>[...p,{id:Date.now(),name:"",description:"",qty:1,unit_price:0,total:0}]);
+  }
+  function removeItem(id) { setItems(p=>p.filter(i=>i.id!==id)); }
+  function updateItem(id,key,val) {
+    setItems(p=>p.map(i=>{
+      if(i.id!==id) return i;
+      const updated={...i,[key]:parseFloat(val)||val};
+      if(["qty","unit_price"].includes(key)) {
+        const q=key==="qty"?(parseFloat(val)||0):i.qty;
+        const p=key==="unit_price"?(parseFloat(val)||0):i.unit_price;
+        updated.total=Math.round(q*p*100)/100;
+      }
+      return updated;
+    }));
+  }
+
+  const subtotal = items.reduce((s,i)=>s+(i.total||0),0);
+  const taxAmt = subtotal*(taxRate/100);
+  const total = subtotal+taxAmt;
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const payload = {
+        notes,
+        tax_rate: taxRate/100,
+        line_items: items.map(i=>({
+          name: i.name,
+          description: i.description||"",
+          quantity: parseFloat(i.qty)||1,
+          unit_price: parseFloat(i.unit_price)||0,
+          discount_pct: 0,
+        })),
+      };
+      const est = await apiFetch(`/jobs/${job.id}/estimates`,{method:"POST",body:JSON.stringify(payload)});
+      onSave(est);
+      onClose();
+    } catch(e) { alert(e.message); }
+    setSaving(false);
+  }
+
+  const cellStyle = { padding:"6px 8px", fontSize:12, border:"1px solid var(--border)", borderRadius:6, width:"100%", outline:"none" };
+
+  return (
+    <Modal title={`New Estimate — ${job.job_number}`} onClose={onClose} width={720}>
+      <div style={{ padding:"16px 24px" }}>
+        <div style={{ fontSize:12,color:"var(--text3)",marginBottom:16 }}>
+          {job.title} · {job.customer_name}
+        </div>
+
+        {/* Line items table */}
+        <table style={{ width:"100%",borderCollapse:"collapse",marginBottom:12 }}>
+          <thead>
+            <tr style={{ background:"var(--surface2)" }}>
+              {["Item","Description","Qty","Unit Price","Total",""].map(h=>(
+                <th key={h} style={{ padding:"8px",textAlign:"left",fontSize:11,fontWeight:600,color:"var(--text3)",borderBottom:"1px solid var(--border)",fontFamily:"var(--display)",letterSpacing:"0.06em",textTransform:"uppercase" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map(item=>(
+              <tr key={item.id}>
+                <td style={{ padding:"6px 4px",width:"25%" }}><input style={cellStyle} value={item.name} onChange={e=>updateItem(item.id,"name",e.target.value)} placeholder="Item name" /></td>
+                <td style={{ padding:"6px 4px",width:"30%" }}><input style={cellStyle} value={item.description} onChange={e=>updateItem(item.id,"description",e.target.value)} placeholder="Optional" /></td>
+                <td style={{ padding:"6px 4px",width:"8%" }}><input style={{...cellStyle,textAlign:"right"}} type="number" min="0" step="0.5" value={item.qty} onChange={e=>updateItem(item.id,"qty",e.target.value)} /></td>
+                <td style={{ padding:"6px 4px",width:"15%" }}>
+                  <div style={{ position:"relative" }}>
+                    <span style={{ position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"var(--text3)" }}>$</span>
+                    <input style={{...cellStyle,paddingLeft:18,textAlign:"right"}} type="number" min="0" step="0.01" value={item.unit_price} onChange={e=>updateItem(item.id,"unit_price",e.target.value)} />
+                  </div>
+                </td>
+                <td style={{ padding:"6px 8px",width:"12%",textAlign:"right",fontSize:13,fontFamily:"var(--mono)",fontWeight:600 }}>{fmt$(item.total)}</td>
+                <td style={{ padding:"6px 4px",width:"5%",textAlign:"center" }}>
+                  <button onClick={()=>removeItem(item.id)} style={{ background:"none",border:"none",color:"var(--text4)",cursor:"pointer",fontSize:16 }}
+                    onMouseEnter={e=>e.currentTarget.style.color="var(--red)"}
+                    onMouseLeave={e=>e.currentTarget.style.color="var(--text4)"}
+                  >×</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <button onClick={addItem} style={{ width:"100%",padding:"8px",background:"none",border:"1px dashed var(--border2)",borderRadius:7,fontSize:12,color:"var(--text3)",cursor:"pointer",marginBottom:16,transition:"all .12s" }}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--blue)";e.currentTarget.style.color="var(--blue)";}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border2)";e.currentTarget.style.color="var(--text3)";}}
+        >+ Add line item</button>
+
+        {/* Totals */}
+        <div style={{ display:"flex",gap:20,alignItems:"flex-end" }}>
+          <div style={{ flex:1 }}>
+            <FormField label="Notes (visible to customer)">
+              <textarea style={{...inputStyle,height:70,resize:"vertical"}} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Thank you for your business…" />
+            </FormField>
+          </div>
+          <div style={{ width:220 }}>
+            <div style={{ display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid var(--border)" }}>
+              <span style={{ fontSize:12,color:"var(--text3)" }}>Subtotal</span>
+              <span style={{ fontSize:12,fontFamily:"var(--mono)" }}>{fmt$(subtotal)}</span>
+            </div>
+            <div style={{ display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid var(--border)",alignItems:"center" }}>
+              <span style={{ fontSize:12,color:"var(--text3)" }}>Tax %</span>
+              <input type="number" min="0" max="20" step="0.125" value={taxRate} onChange={e=>setTaxRate(parseFloat(e.target.value)||0)} style={{ width:60,padding:"2px 6px",borderRadius:5,border:"1px solid var(--border)",fontSize:12,textAlign:"right",fontFamily:"var(--mono)" }} />
+            </div>
+            <div style={{ display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid var(--border)" }}>
+              <span style={{ fontSize:12,color:"var(--text3)" }}>Tax</span>
+              <span style={{ fontSize:12,fontFamily:"var(--mono)" }}>{fmt$(taxAmt)}</span>
+            </div>
+            <div style={{ display:"flex",justifyContent:"space-between",padding:"8px 0 0" }}>
+              <span style={{ fontSize:15,fontWeight:700,fontFamily:"var(--display)" }}>Total</span>
+              <span style={{ fontSize:18,fontFamily:"var(--mono)",fontWeight:700,color:"var(--blue)" }}>{fmt$(total)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style={{ padding:"16px 24px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:10 }}>
+        <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={handleSave} disabled={saving}>{saving?"Saving…":"Save Estimate"}</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+//  ESTIMATES LIST (on job card)
+// ════════════════════════════════════════════════════════════════
+function EstimateActions({ estimate, onConverted }) {
+  const [converting, setConverting] = useState(false);
+
+  async function handleApprove() {
+    try {
+      await apiFetch(`/estimates/${estimate.id}/approve`,{method:"POST"});
+      alert("Estimate approved!");
+    } catch(e) { alert(e.message); }
+  }
+
+  async function handleConvert() {
+    setConverting(true);
+    try {
+      await apiFetch(`/estimates/${estimate.id}/convert`,{method:"POST"});
+      alert("Invoice created! Check the Invoices tab.");
+      onConverted?.();
+    } catch(e) { alert(e.message); }
+    setConverting(false);
+  }
+
+  return (
+    <div style={{ display:"flex",gap:6,alignItems:"center",flexWrap:"wrap" }}>
+      <span style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)" }}>{estimate.estimate_number}</span>
+      <span style={{ fontSize:12,fontFamily:"var(--mono)",fontWeight:600,color:"var(--blue)" }}>{fmt$(estimate.total)}</span>
+      <Chip status={estimate.status} />
+      {estimate.status==="draft" && <Btn small variant="secondary" onClick={handleApprove}>✓ Approve</Btn>}
+      {estimate.status==="approved" && <Btn small onClick={handleConvert} disabled={converting}>{converting?"Converting…":"→ Create Invoice"}</Btn>}
     </div>
   );
 }
