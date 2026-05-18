@@ -104,7 +104,7 @@ function AuthProvider({ children }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error?.message || "Login failed");
       localStorage.setItem("fieldops_token", data.data.token);
-      const u = { ...data.data.user, company: data.data.user.company || { name: "My Company" } };
+      const u = { ...data.data.user, company: data.data.user.company || { name: "405 Heating and Air Conditioning" } };
       localStorage.setItem("fsm_user", JSON.stringify(u));
       setUser(u);
       setLoading(false);
