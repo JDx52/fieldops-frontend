@@ -1426,7 +1426,70 @@ function JobDetailModal({ job, onClose, onUpdated }) {
     </Modal>
   );
 }
+function TeamScreen() {
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showNew, setShowNew] = useState(false);
 
+  async function load() {
+    setLoading(true);
+    try { const d = await apiFetch("/users?limit=100"); setMembers(Array.isArray(d)?d:[]); }
+    catch(e) { console.error(e); }
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  return (
+    <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
+      {showNew && <NewMemberModal onClose={()=>setShowNew(false)} onSave={async m=>{ setMembers(p=>[m,...p]); setShowNew(false); }} />}
+      <div style={{ padding:"14px 16px",background:"var(--surface)",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0 }}>
+        <span style={{ fontSize:16,fontFamily:"var(--display)",fontWeight:700 }}>Team Members</span>
+        <Btn small onClick={()=>setShowNew(true)}>+ Add Member</Btn>
+      </div>
+      <div style={{ flex:1,overflowY:"auto",padding:16 }}>
+        {loading ? <Spinner /> : members.length===0
+          ? <Empty icon="👷" title="No team members yet" desc="Add your first technician" action={<Btn onClick={()=>setShowNew(true)}>+ Add Member</Btn>} />
+          : <div style={{ display:"flex",flexDirection:"column",gap:10 }}>
+              {members.map(m=>(
+                <Card key={m.id} style={{ padding:"14px 16px" }}>
+                  <div style={{ display:"flex",alignItems:"center",gap:14 }}>
+                    <div style={{ width:44,height:44,borderRadius:"50%",background:"var(--blue-lt)",border:"1px solid var(--blue-bd)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700,color:"var(--blue)",flexShrink:0 }}>
+                      {(m.name||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}
+                    </div>
+                    <div style={{ flex:1,minWidth:0 }}>
+                      <div style={{ fontSize:15,fontWeight:700,marginBottom:2 }}>{m.name}</div>
+                      <div style={{ fontSize:12,color:"var(--text3)",marginBottom:4 }}>{m.email}{m.phone?` · ${m.phone}`:""}</div>
+                      <span style={{ background:"var(--blue-lt)",color:"var(--blue)",fontSize:11,fontWeight:600,padding:"2px 10px",borderRadius:100 }}>{m.role}</span>
+                    </div>
+                    <div style={{ width:10,height:10,borderRadius:"50%",background:m.is_active!==false?"#22C55E":"#9CA3AF",flexShrink:0 }} />
+                  </div>
+                </Card>
+              ))}
+            </div>
+        }
+      </div>
+    </div>
+  );
+}
+
+function NewMemberModal({ onClose, onSave }) {
+  const [f, setF] = useState({ name:"",email:"",phone:"",password:"",role:"technician" });
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!f.name||!f.email||!f.password) { alert("Name, email and password required"); return; }
+    if (f.password.length < 6) { alert("Password must be at least 6 characters"); return; }
+    setSaving(true);
+    try { const m = await apiFetch("/users",{ method:"POST", body:JSON.stringify(f) }); onSave(m); }
+    catch(e) { alert(e.message); }
+    setSaving(false);
+  }
+
+  return (
+    <Modal title="Add Team Member" onClose={onClose}>
+      <div style={{ padding:"18px 24px",display:"flex",flexDirection:"column",gap:14 }}>
+        <Field label="Full Name *"><input style={inputStyle} value={f.name} onChange={e=>setF(p=>({...p,name:e.target.value}))} placeholder="John Smith" /></Field>
+        <Field la
 // ════════════════════════════════════════════════════════════════
 //  APP SHELL
 // ════════════════════════════════════════════════════════════════
