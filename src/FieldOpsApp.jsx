@@ -466,106 +466,107 @@ function Dashboard() {
 //  CUSTOMERS
 // ════════════════════════════════════════════════════════════════
 function CustomersScreen() {
-  const [customers, setCustomers] = useState([]);
+  const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [showNew, setShowNew] = useState(false);
-  const [estimateJob, setEstimateJob] = useState(null);
-  const [detailJob, setDetailJob] = useState(null);
 
   async function load() {
     setLoading(true);
-    try {
-      const data = await apiFetch(`/customers?limit=100${search?`&search=${search}`:""}`);
-      setCustomers(Array.isArray(data) ? data : []);
-    } catch(e) { console.error(e); }
+    try { const d = await apiFetch(`/customers?limit=100${search?`&search=${encodeURIComponent(search)}`:""}`); setList(Array.isArray(d)?d:[]); }
+    catch(e) { console.error(e); }
     setLoading(false);
   }
-
   useEffect(() => { load(); }, [search]);
 
-  async function handleCreate(form) {
-    try {
-      const newCust = await apiFetch("/customers", {
-        method: "POST",
-        body: JSON.stringify(form),
-      });
-      setCustomers(p => [newCust, ...p]);
-      setSelected(newCust);
-      setShowNew(false);
-    } catch(e) { alert(e.message); }
+  async function handleDelete(id) {
+    if (!window.confirm("Archive this customer?")) return;
+    try { await apiFetch(`/customers/${id}`, { method:"DELETE" }); setList(p=>p.filter(c=>c.id!==id)); setSelected(null); }
+    catch(e) { alert(e.message); }
   }
 
-  return (
-    <div style={{ flex:1,display:"flex",overflow:"hidden" }}>
-      {showNew && <NewCustomerModal onClose={()=>setShowNew(false)} onSave={handleCreate} />}
-      <div style={{ width:300,flexShrink:0,borderRight:"1px solid var(--border)",background:"var(--surface)",display:"flex",flexDirection:"column" }}>
-        <div style={{ padding:"14px 14px 10px",borderBottom:"1px solid var(--border)" }}>
-          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
-            <span style={{ fontSize:15,fontFamily:"var(--display)",fontWeight:700 }}>Customers</span>
-            <Btn small onClick={()=>setShowNew(true)}>+ New</Btn>
-          </div>
-          <div style={{ position:"relative" }}>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search…" style={{ ...inputStyle,paddingLeft:28 }} />
-            <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"var(--text3)",fontSize:12 }}>⌕</span>
-          </div>
+  // ── MOBILE DETAIL VIEW ──
+  if (selected) {
+    return (
+      <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--surface)" }}>
+        {/* Back header */}
+        <div style={{ padding:"12px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:12,background:"var(--surface)",flexShrink:0 }}>
+          <button onClick={()=>setSelected(null)} style={{ background:"none",border:"none",color:"var(--blue)",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:0 }}>
+            ← Customers
+          </button>
         </div>
-        <div style={{ flex:1,overflowY:"auto" }}>
-          {loading ? <Spinner /> : customers.length === 0 ? (
-            <div style={{ padding:24,textAlign:"center",color:"var(--text3)",fontSize:13 }}>
-              {search ? "No customers found" : "No customers yet — add your first one!"}
+        {/* Detail */}
+        <div style={{ flex:1,overflowY:"auto",padding:20 }}>
+          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20 }}>
+            <div>
+              <h2 style={{ fontSize:22,fontFamily:"var(--display)",fontWeight:800,marginBottom:6 }}>{selected.first_name} {selected.last_name}</h2>
+              <div style={{ display:"flex",flexDirection:"column",gap:4,fontSize:13,color:"var(--text3)" }}>
+                {selected.phone && <span>📞 {selected.phone}</span>}
+                {selected.email && <span>✉ {selected.email}</span>}
+              </div>
             </div>
-          ) : customers.map(c => (
-            <div key={c.id} onClick={()=>setSelected(c)} style={{ padding:"11px 14px",borderBottom:"1px solid var(--border)",cursor:"pointer",background:selected?.id===c.id?"var(--blue-lt)":"transparent",borderLeft:selected?.id===c.id?"3px solid var(--blue)":"3px solid transparent",transition:"background .1s" }}
-              onMouseEnter={e=>{if(selected?.id!==c.id)e.currentTarget.style.background="var(--surface2)"}}
-              onMouseLeave={e=>{if(selected?.id!==c.id)e.currentTarget.style.background="transparent"}}
-            >
-              <div style={{ fontSize:13,fontWeight:600,marginBottom:2 }}>{c.first_name} {c.last_name}</div>
-              <div style={{ fontSize:11,color:"var(--text3)" }}>{c.phone} · {c.job_count||0} jobs</div>
-            </div>
-          ))}
+            <Btn small variant="danger" onClick={()=>handleDelete(selected.id)}>Archive</Btn>
+          </div>
+          <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
+            <Card style={{ padding:"14px 16px" }}>
+              <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10,fontFamily:"var(--display)" }}>Contact Info</div>
+              {[["Phone",selected.phone],["Email",selected.email],["Source",selected.source]].filter(([,v])=>v).map(([l,v])=>(
+                <div key={l} style={{ display:"flex",gap:12,marginBottom:8 }}>
+                  <span style={{ fontSize:12,color:"var(--text3)",width:60,flexShrink:0 }}>{l}</span>
+                  <span style={{ fontSize:13 }}>{v}</span>
+                </div>
+              ))}
+            </Card>
+            <Card style={{ padding:"14px 16px" }}>
+              <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8,fontFamily:"var(--display)" }}>Jobs</div>
+              <div style={{ fontSize:28,fontFamily:"var(--mono)",fontWeight:700,color:"var(--blue)" }}>{selected.job_count||0}</div>
+              <div style={{ fontSize:12,color:"var(--text3)" }}>total jobs</div>
+            </Card>
+            {selected.notes && (
+              <Card style={{ padding:"14px 16px" }}>
+                <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8,fontFamily:"var(--display)" }}>Notes</div>
+                <p style={{ fontSize:13,color:"var(--text2)",lineHeight:1.6,fontStyle:"italic" }}>"{selected.notes}"</p>
+              </Card>
+            )}
+          </div>
         </div>
       </div>
-      <div style={{ flex:1,overflowY:"auto",padding:28 }}>
-        {selected ? (
-          <div className="fade-in">
-            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24 }}>
+    );
+  }
+
+  // ── LIST VIEW ──
+  return (
+    <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
+      {showNew && <NewCustomerModal onClose={()=>setShowNew(false)} onSave={async c=>{ setList(p=>[c,...p]); setSelected(c); setShowNew(false); }} />}
+      {/* Header */}
+      <div style={{ padding:"12px 16px",borderBottom:"1px solid var(--border)",background:"var(--surface)",flexShrink:0 }}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
+          <span style={{ fontSize:16,fontFamily:"var(--display)",fontWeight:700 }}>Customers</span>
+          <Btn small onClick={()=>setShowNew(true)}>+ New</Btn>
+        </div>
+        <div style={{ position:"relative" }}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name, phone…" style={{ ...inputStyle,paddingLeft:28 }} />
+          <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"var(--text3)",fontSize:12 }}>⌕</span>
+        </div>
+      </div>
+      {/* List */}
+      <div style={{ flex:1,overflowY:"auto" }}>
+        {loading ? <Spinner /> : list.length===0
+          ? <Empty icon="👥" title="No customers yet" desc="Add your first customer" action={<Btn onClick={()=>setShowNew(true)}>+ New Customer</Btn>} />
+          : list.map(c => (
+            <div key={c.id} onClick={()=>setSelected(c)} style={{ padding:"14px 16px",borderBottom:"1px solid var(--border)",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,transition:"background .1s" }}
+              onMouseEnter={e=>e.currentTarget.style.background="var(--surface2)"}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}
+            >
               <div>
-                <h2 style={{ fontSize:24,fontFamily:"var(--display)",fontWeight:800,marginBottom:4 }}>{selected.first_name} {selected.last_name}</h2>
-                <div style={{ display:"flex",gap:12,color:"var(--text3)",fontSize:13 }}>
-                  {selected.phone && <span>📞 {selected.phone}</span>}
-                  {selected.email && <span>✉ {selected.email}</span>}
-                </div>
+                <div style={{ fontSize:14,fontWeight:600,marginBottom:2 }}>{c.first_name} {c.last_name}</div>
+                <div style={{ fontSize:12,color:"var(--text3)" }}>{c.phone||c.email||"No contact"} · {c.job_count||0} job{c.job_count!==1?"s":""}</div>
               </div>
-              <Btn small>+ New Job</Btn>
+              <span style={{ color:"var(--text4)",fontSize:16 }}>›</span>
             </div>
-            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12 }}>
-              <Card style={{ padding:"16px 18px" }}>
-                <div style={{ fontSize:11,fontWeight:600,color:"var(--text3)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10,fontFamily:"var(--display)" }}>Contact Info</div>
-                {[["Phone",selected.phone],["Email",selected.email],["Source",selected.source]].map(([l,v])=>v&&(
-                  <div key={l} style={{ display:"flex",gap:12,marginBottom:8 }}>
-                    <span style={{ fontSize:12,color:"var(--text3)",width:60,flexShrink:0 }}>{l}</span>
-                    <span style={{ fontSize:13 }}>{v}</span>
-                  </div>
-                ))}
-              </Card>
-              <Card style={{ padding:"16px 18px" }}>
-                <div style={{ fontSize:11,fontWeight:600,color:"var(--text3)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10,fontFamily:"var(--display)" }}>Stats</div>
-                <div style={{ fontSize:24,fontFamily:"var(--mono)",fontWeight:700,color:"var(--blue)" }}>{selected.job_count||0}</div>
-                <div style={{ fontSize:12,color:"var(--text3)" }}>Total jobs</div>
-              </Card>
-              {selected.notes && (
-                <Card style={{ padding:"16px 18px",gridColumn:"1/-1" }}>
-                  <div style={{ fontSize:11,fontWeight:600,color:"var(--text3)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8,fontFamily:"var(--display)" }}>Notes</div>
-                  <p style={{ fontSize:13,color:"var(--text2)",lineHeight:1.6,fontStyle:"italic" }}>"{selected.notes}"</p>
-                </Card>
-              )}
-            </div>
-          </div>
-        ) : (
-          <EmptyState icon="👥" title="Select a customer" desc="Click a customer on the left to view their details" />
-        )}
+          ))
+        }
       </div>
     </div>
   );
@@ -854,108 +855,117 @@ function DispatchScreen() {
 //  INVOICES
 // ════════════════════════════════════════════════════════════════
 function InvoicesScreen() {
-  const [invoices, setInvoices] = useState([]);
+  const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filter, setFilter] = useState("all");
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
     setLoading(true);
-    apiFetch(`/invoices?limit=100${filterStatus!=="all"?`&status=${filterStatus}`:""}`)
-      .then(d=>setInvoices(Array.isArray(d)?d:[]))
+    apiFetch(`/invoices?limit=100${filter!=="all"?`&status=${filter}`:""}`)
+      .then(d=>setList(Array.isArray(d)?d:[]))
       .catch(()=>{})
       .finally(()=>setLoading(false));
-  }, [filterStatus]);
+  }, [filter]);
 
-  return (
-    <div style={{ flex:1,display:"flex",overflow:"hidden" }}>
-      <div style={{ width:"100%",maxWidth:310,flexShrink:0,borderRight:"1px solid var(--border)",background:"var(--surface)",display:"flex",flexDirection:"column" }}>
-        <div style={{ padding:"14px 14px 10px",borderBottom:"1px solid var(--border)" }}>
-          <div style={{ fontSize:15,fontFamily:"var(--display)",fontWeight:700,marginBottom:10 }}>Invoices</div>
-          <div style={{ display:"flex",gap:4,flexWrap:"wrap" }}>
-            {["all","draft","sent","partial","overdue","paid"].map(s=>(
-              <button key={s} onClick={()=>setFilterStatus(s)} style={{ fontSize:11,padding:"3px 9px",borderRadius:100,background:filterStatus===s?"var(--blue)":"var(--surface2)",color:filterStatus===s?"#fff":"var(--text3)",border:filterStatus===s?"none":"1px solid var(--border)",cursor:"pointer",textTransform:"capitalize",fontWeight:filterStatus===s?600:400 }}>
-                {s}
-              </button>
+  async function sendInvoice(id) {
+    try { await apiFetch(`/invoices/${id}/send`,{method:"POST"}); setList(p=>p.map(i=>i.id===id?{...i,status:"sent"}:i)); alert("Invoice sent!"); }
+    catch(e) { alert(e.message); }
+  }
+
+  // ── MOBILE DETAIL VIEW ──
+  if (selected) {
+    const balance = Math.round(((selected.total||0)-(selected.amount_paid||0))*100)/100;
+    return (
+      <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--surface)" }}>
+        <div style={{ padding:"12px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:12,flexShrink:0 }}>
+          <button onClick={()=>setSelected(null)} style={{ background:"none",border:"none",color:"var(--blue)",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:0 }}>
+            ← Invoices
+          </button>
+        </div>
+        <div style={{ flex:1,overflowY:"auto",padding:20 }}>
+          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16 }}>
+            <div>
+              <div style={{ fontSize:12,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:4 }}>{selected.invoice_number}</div>
+              <div style={{ fontSize:18,fontFamily:"var(--display)",fontWeight:800,marginBottom:4 }}>{selected.customer_name}</div>
+              <Chip status={selected.status} />
+            </div>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2 }}>{selected.status==="paid"?"Paid":"Balance"}</div>
+              <div style={{ fontSize:28,fontFamily:"var(--mono)",fontWeight:700,color:selected.status==="paid"?"var(--green)":balance>0?"var(--red)":"var(--green)" }}>
+                {selected.status==="paid"?fmt$(selected.amount_paid):fmt$(balance)}
+              </div>
+            </div>
+          </div>
+          <div style={{ display:"flex",gap:8,marginBottom:20,flexWrap:"wrap" }}>
+            {selected.status==="draft" && <Btn onClick={()=>sendInvoice(selected.id)}>✉ Send</Btn>}
+            {["sent","partial","overdue"].includes(selected.status) && <Btn variant="green">💳 Collect Payment</Btn>}
+            <Btn variant="secondary">⬇ Download</Btn>
+          </div>
+          <div style={{ display:"flex",flexDirection:"column",gap:10 }}>
+            {[
+              { label:"Invoice Total", val:fmt$(selected.total), color:"var(--text1)" },
+              { label:"Amount Paid",   val:fmt$(selected.amount_paid), color:"var(--green)" },
+              { label:"Balance Due",   val:fmt$(balance), color:balance>0?"var(--red)":"var(--green)" },
+            ].map((s,i)=>(
+              <Card key={i} style={{ padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                <span style={{ fontSize:13,color:"var(--text2)" }}>{s.label}</span>
+                <span style={{ fontSize:18,fontFamily:"var(--mono)",fontWeight:700,color:s.color }}>{s.val}</span>
+              </Card>
             ))}
           </div>
         </div>
-        <div style={{ flex:1,overflowY:"auto" }}>
-          {loading ? <Spinner /> : invoices.length===0 ? (
-            <div style={{ padding:24,textAlign:"center",color:"var(--text3)",fontSize:13 }}>No invoices found</div>
-          ) : invoices.map(inv=>{
-            const sel=selected?.id===inv.id;
-            const balance=inv.total-inv.amount_paid;
+      </div>
+    );
+  }
+
+  // ── LIST VIEW ──
+  return (
+    <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
+      <div style={{ padding:"12px 16px",borderBottom:"1px solid var(--border)",background:"var(--surface)",flexShrink:0 }}>
+        <div style={{ fontSize:16,fontFamily:"var(--display)",fontWeight:700,marginBottom:10 }}>Invoices</div>
+        <div style={{ display:"flex",gap:4,flexWrap:"wrap" }}>
+          {["all","draft","sent","partial","overdue","paid"].map(s=>(
+            <button key={s} onClick={()=>setFilter(s)} style={{ fontSize:11,padding:"4px 10px",borderRadius:100,background:filter===s?"var(--blue)":"var(--surface2)",color:filter===s?"#fff":"var(--text3)",border:filter===s?"none":"1px solid var(--border)",cursor:"pointer",textTransform:"capitalize",fontWeight:filter===s?600:400 }}>
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ flex:1,overflowY:"auto" }}>
+        {loading ? <Spinner /> : list.length===0
+          ? <Empty icon="📄" title="No invoices" desc="Create estimates from the Jobs tab to generate invoices" />
+          : list.map(inv => {
+            const balance = Math.round(((inv.total||0)-(inv.amount_paid||0))*100)/100;
             return (
-              <div key={inv.id} onClick={()=>setSelected(inv)} style={{ padding:"12px 14px",borderBottom:"1px solid var(--border)",cursor:"pointer",background:sel?"var(--blue-lt)":"transparent",borderLeft:sel?"3px solid var(--blue)":"3px solid transparent",transition:"background .1s" }}
-                onMouseEnter={e=>{if(!sel)e.currentTarget.style.background="var(--surface2)"}}
-                onMouseLeave={e=>{if(!sel)e.currentTarget.style.background="transparent"}}
+              <div key={inv.id} onClick={()=>setSelected(inv)} style={{ padding:"14px 16px",borderBottom:"1px solid var(--border)",cursor:"pointer",transition:"background .1s" }}
+                onMouseEnter={e=>e.currentTarget.style.background="var(--surface2)"}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}
               >
-                <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}>
-                  <span style={{ fontSize:12,fontFamily:"var(--mono)",fontWeight:600,color:sel?"var(--blue)":"var(--text2)" }}>{inv.invoice_number}</span>
-                  <Chip status={inv.status} />
+                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6 }}>
+                  <div>
+                    <div style={{ fontSize:12,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:2 }}>{inv.invoice_number}</div>
+                    <div style={{ fontSize:14,fontWeight:600 }}>{inv.customer_name}</div>
+                  </div>
+                  <div style={{ textAlign:"right" }}>
+                    <div style={{ fontSize:16,fontFamily:"var(--mono)",fontWeight:700,color:inv.status==="paid"?"var(--green)":inv.status==="overdue"?"var(--red)":"var(--text1)" }}>
+                      {inv.status==="paid"?fmt$(inv.amount_paid):fmt$(balance)}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ fontSize:13,fontWeight:500,marginBottom:2 }}>{inv.customer_name}</div>
-                <div style={{ display:"flex",justifyContent:"space-between" }}>
+                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
                   <span style={{ fontSize:11,color:"var(--text3)" }}>Due {fmtDate(inv.due_date)}</span>
-                  <span style={{ fontSize:14,fontFamily:"var(--mono)",fontWeight:700,color:inv.status==="paid"?"var(--green)":inv.status==="overdue"?"var(--red)":"var(--text1)" }}>
-                    {inv.status==="paid"?fmt$(inv.amount_paid):fmt$(balance)}
-                  </span>
+                  <Chip status={inv.status} />
                 </div>
               </div>
             );
-          })}
-        </div>
-      </div>
-      <div style={{ flex:1,overflowY:"auto",padding:28 }}>
-        {selected ? (
-          <div className="fade-in">
-            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24 }}>
-              <div>
-                <div style={{ fontSize:12,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:4 }}>{selected.job_number}</div>
-                <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:6 }}>
-                  <h2 style={{ fontSize:24,fontFamily:"var(--display)",fontWeight:800 }}>{selected.invoice_number}</h2>
-                  <Chip status={selected.status} />
-                </div>
-                <div style={{ fontSize:13,color:"var(--text3)" }}>{selected.customer_name} · Due {fmtDate(selected.due_date)}</div>
-              </div>
-              <div style={{ textAlign:"right" }}>
-                <div style={{ fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4 }}>{selected.status==="paid"?"Paid":"Balance Due"}</div>
-                <div style={{ fontSize:32,fontFamily:"var(--mono)",fontWeight:700,color:selected.status==="paid"?"var(--green)":selected.status==="overdue"?"var(--red)":"var(--text1)" }}>
-                  {selected.status==="paid"?fmt$(selected.amount_paid):fmt$(selected.total-selected.amount_paid)}
-                </div>
-              </div>
-            </div>
-            <div style={{ display:"flex",gap:8,marginBottom:24 }}>
-              {["sent","partial","overdue"].includes(selected.status) && <Btn>💳 Collect Payment</Btn>}
-              <Btn variant="secondary">⬇ Download PDF</Btn>
-              <Btn variant="secondary">✉ Email</Btn>
-            </div>
-            <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12 }}>
-              {[
-                {label:"Invoice Total",val:fmt$(selected.total),color:"var(--text1)"},
-                {label:"Amount Paid",val:fmt$(selected.amount_paid),color:"var(--green)"},
-                {label:"Balance",val:fmt$(selected.total-selected.amount_paid),color:selected.total-selected.amount_paid>0?"var(--red)":"var(--green)"},
-              ].map((s,i)=>(
-                <Card key={i} style={{ padding:"14px 18px" }}>
-                  <div style={{ fontSize:10,color:"var(--text3)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:6,fontFamily:"var(--display)",fontWeight:600 }}>{s.label}</div>
-                  <div style={{ fontSize:20,fontFamily:"var(--mono)",fontWeight:700,color:s.color }}>{s.val}</div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <EmptyState icon="📄" title="Select an invoice" desc="Click an invoice on the left to view details" />
-        )}
+          })
+        }
       </div>
     </div>
   );
 }
 
-
-// ════════════════════════════════════════════════════════════════
-//  ESTIMATE MODAL
-// ════════════════════════════════════════════════════════════════
 function NewEstimateModal({ job, onClose, onSave }) {
   const [items, setItems] = useState([
     { id:1, name:"Diagnostic Fee", description:"System inspection and diagnostics", qty:1, unit_price:89, total:89 },
