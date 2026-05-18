@@ -427,6 +427,7 @@ function CustomersScreen() {
   const [selected, setSelected] = useState(null);
   const [showNew, setShowNew] = useState(false);
   const [estimateJob, setEstimateJob] = useState(null);
+  const [detailJob, setDetailJob] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -601,7 +602,6 @@ function JobsScreen() {
       {showNew && <NewJobModal onClose={()=>setShowNew(false)} onSave={async(job)=>{ setJobs(p=>[job,...p]); setShowNew(false); }} />}
       {estimateJob && <NewEstimateModal job={estimateJob} onClose={()=>setEstimateJob(null)} onSave={()=>setEstimateJob(null)} />}
       {detailJob && <JobDetailModal job={detailJob} onClose={()=>setDetailJob(null)} />}
-      {detailJob && <JobDetailModal job={detailJob} onClose={()=>setDetailJob(null)} />}
       <div style={{ padding:"12px 20px",background:"var(--surface)",borderBottom:"1px solid var(--border)",display:"flex",gap:8,alignItems:"center" }}>
         <div style={{ display:"flex",gap:4 }}>
           {["all","scheduled","in_progress","en_route","completed"].map(s=>(
@@ -636,7 +636,6 @@ function JobsScreen() {
                   {job.status==="en_route" && <Btn small variant="secondary" onClick={()=>handleStatusChange(job.id,"in_progress")}>→ Start Job</Btn>}
                   {job.status==="in_progress" && <Btn small onClick={()=>handleStatusChange(job.id,"completed")}>✓ Complete</Btn>}
                   <Btn small variant="secondary" onClick={()=>setEstimateJob(job)}>📋 Create Estimate</Btn>
-                  <Btn small variant="secondary" onClick={()=>setDetailJob(job)}>📝 Notes & Photos</Btn>
                 </div>
               </Card>
             ))}
@@ -1094,9 +1093,12 @@ function JobDetailModal({ job, onClose, onUpdated }) {
   useEffect(() => {
     async function load() {
       try {
-        const j = await apiFetch(`/jobs/${job.id}`);
-        setNotes(j.notes || []);
-        setPhotos(j.photos || []);
+        const [notesData, photosData] = await Promise.all([
+          apiFetch(`/jobs/${job.id}/notes`).catch(() => []),
+          apiFetch(`/jobs/${job.id}/photos`).catch(() => []),
+        ]);
+        setNotes(Array.isArray(notesData) ? notesData : []);
+        setPhotos(Array.isArray(photosData) ? photosData : []);
       } catch(e) { console.error(e); }
       setLoading(false);
     }
