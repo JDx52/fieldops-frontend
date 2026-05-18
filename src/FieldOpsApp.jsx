@@ -95,7 +95,7 @@ function AuthProvider({ children }) {
   async function login(email, password) {
     setLoading(true);
     try {
-      const API = process.env.REACT_APP_API_URL || "https://fieldops-api-production-a1b2.com/v1";
+      const API = process.env.REACT_APP_API_URL || "fieldops-api-production-b341.up.railway.app/v1";
       const res = await fetch(`${API}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
