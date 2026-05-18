@@ -1488,19 +1488,19 @@ function NewMemberModal({ onClose, onSave }) {
   return (
     <Modal title="Add Team Member" onClose={onClose}>
       <div style={{ padding:"18px 24px",display:"flex",flexDirection:"column",gap:14 }}>
-        <Field label="Full Name *"><input style={inputStyle} value={f.name} onChange={e=>setF(p=>({...p,name:e.target.value}))} placeholder="John Smith" /></Field>
-        <Field label="Email *"><input style={inputStyle} type="email" value={f.email} onChange={e=>setF(p=>({...p,email:e.target.value}))} placeholder="john@email.com" /></Field>
-        <Field label="Phone"><input style={inputStyle} value={f.phone} onChange={e=>setF(p=>({...p,phone:e.target.value}))} placeholder="405-555-0100" /></Field>
-        <Field label="Role">
+<FormField label="Full Name *"><input style={inputStyle} value={f.name} onChange={e=>setF(p=>({...p,name:e.target.value}))} placeholder="John Smith" /></FormField>
+        <FormField label="Email *"><input style={inputStyle} type="email" value={f.email} onChange={e=>setF(p=>({...p,email:e.target.value}))} placeholder="john@email.com" /></FormField>
+        <FormField label="Phone"><input style={inputStyle} value={f.phone} onChange={e=>setF(p=>({...p,phone:e.target.value}))} placeholder="405-555-0100" /></FormField>
+        <FormField label="Role">
           <select style={inputStyle} value={f.role} onChange={e=>setF(p=>({...p,role:e.target.value}))}>
             <option value="technician">Technician</option>
             <option value="dispatcher">Dispatcher</option>
             <option value="admin">Admin</option>
           </select>
-        </Field>
-        <Field label="Password *">
+        </FormField>
+        <FormField label="Password *">
           <input style={inputStyle} type="password" value={f.password} onChange={e=>setF(p=>({...p,password:e.target.value}))} placeholder="Min 6 characters" />
-        </Field>
+        </FormField>
         <div style={{ background:"var(--blue-lt)",border:"1px solid var(--blue-bd)",borderRadius:8,padding:"10px 14px",fontSize:12,color:"var(--blue)" }}>
           💡 Share these login details with your tech. They log in at <strong>fieldops-api-uuem.vercel.app</strong>
         </div>
