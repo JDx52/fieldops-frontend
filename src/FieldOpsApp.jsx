@@ -298,6 +298,7 @@ const NAV_ITEMS = [
   {id:"/customers",icon:"👥",label:"Customers"},
   {id:"/invoices",icon:"📄",label:"Invoices"},
   {id:"/jobs",icon:"🔧",label:"Jobs"},
+  {id:"/team",icon:"👷",label:"Team"},
 ];
 
 function Sidebar({ collapsed, setCollapsed }) {
