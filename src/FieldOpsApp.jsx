@@ -1,4 +1,4 @@
-/* eslint-disable */ // build-bust-1
+/* eslint-disable */
 // v3.1 mobile-first
 import { useState, useContext, createContext, useCallback, useEffect } from "react";
 
@@ -1313,10 +1313,10 @@ const MOBILE_NAV = [
 function AppShell() {
   const { route, navigate } = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
   useEffect(() => {
-    const h = () => setIsMobile(window.innerWidth <= 768);
+    const h = () => setIsMobile(window.innerWidth < 1024);
     window.addEventListener('resize', h);
     return () => window.removeEventListener('resize', h);
   }, []);
