@@ -25,6 +25,11 @@ const GLOBAL_CSS = `
   ::-webkit-scrollbar-track{background:transparent}
   ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:8px}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @media (max-width: 768px) {
+    .desktop-detail { display: flex !important; position: fixed !important; top: 52px !important; bottom: 60px !important; left: 0 !important; right: 0 !important; z-index: 50 !important; }
+    .desktop-only-detail { display: none !important; }
+  }
+
   /* ── MOBILE ── */
   @media (max-width: 768px) {
     .desktop-only { display: none !important; }
@@ -864,7 +869,7 @@ function InvoicesScreen() {
 
   return (
     <div style={{ flex:1,display:"flex",overflow:"hidden" }}>
-      <div style={{ width:310,flexShrink:0,borderRight:"1px solid var(--border)",background:"var(--surface)",display:"flex",flexDirection:"column" }}>
+      <div style={{ width:"100%",maxWidth:310,flexShrink:0,borderRight:"1px solid var(--border)",background:"var(--surface)",display:"flex",flexDirection:"column" }}>
         <div style={{ padding:"14px 14px 10px",borderBottom:"1px solid var(--border)" }}>
           <div style={{ fontSize:15,fontFamily:"var(--display)",fontWeight:700,marginBottom:10 }}>Invoices</div>
           <div style={{ display:"flex",gap:4,flexWrap:"wrap" }}>
@@ -1322,7 +1327,7 @@ function AppShell() {
             <div style={{ width:28,height:28,borderRadius:7,background:"linear-gradient(135deg,#3B82F6,#1D4ED8)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0 }}>⚡</div>
             <span style={{ fontSize:15,fontFamily:"var(--display)",fontWeight:800,color:"#fff" }}>FieldOps</span>
           </div>
-          <span style={{ fontSize:13,fontFamily:"var(--display)",fontWeight:600,color:"#8899BB" }}>{PAGE_TITLES_MAP[route]||""}</span>
+          <span style={{ fontSize:12,fontFamily:"var(--display)",fontWeight:600,color:"#8899BB",whiteSpace:"nowrap" }}>{PAGE_TITLES_MAP[route]||""}</span>
         </div>
 
         {/* Content */}
