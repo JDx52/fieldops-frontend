@@ -466,6 +466,180 @@ function Dashboard() {
 // ════════════════════════════════════════════════════════════════
 //  CUSTOMERS
 // ════════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════════
+//  CUSTOMER DETAIL
+// ════════════════════════════════════════════════════════════════
+function CustomerDetail({ customer, onBack, onDelete }) {
+  const [jobs, setJobs] = useState([]);
+  const [notes, setNotes] = useState(customer.notes || "");
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [loadingJobs, setLoadingJobs] = useState(true);
+  const [tab, setTab] = useState("info");
+  const { navigate } = useRouter();
+
+  useEffect(() => {
+    apiFetch(`/customers/${customer.id}/jobs`).then(d => {
+      setJobs(Array.isArray(d) ? d : []);
+    }).catch(() => setJobs([])).finally(() => setLoadingJobs(false));
+  }, [customer.id]);
+
+  async function saveNotes() {
+    setSavingNotes(true);
+    try {
+      await apiFetch(`/customers/${customer.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ notes }),
+      });
+      setEditingNotes(false);
+    } catch(e) { alert(e.message); }
+    setSavingNotes(false);
+  }
+
+  const tabStyle = (t) => ({
+    flex: 1,
+    padding: "10px 0",
+    background: "none",
+    border: "none",
+    borderBottom: tab === t ? "2px solid var(--blue)" : "2px solid transparent",
+    color: tab === t ? "var(--blue)" : "var(--text3)",
+    fontSize: 13,
+    fontWeight: tab === t ? 700 : 400,
+    cursor: "pointer",
+    transition: "all .15s",
+  });
+
+  return (
+    <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--bg)" }}>
+      {/* Header */}
+      <div style={{ background:"var(--surface)",borderBottom:"1px solid var(--border)",flexShrink:0 }}>
+        <div style={{ padding:"12px 16px",display:"flex",alignItems:"center",gap:12 }}>
+          <button onClick={onBack} style={{ background:"none",border:"none",color:"var(--blue)",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:0 }}>
+            ← Customers
+          </button>
+        </div>
+        {/* Customer name banner */}
+        <div style={{ padding:"0 16px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-end" }}>
+          <div>
+            <h2 style={{ fontSize:22,fontFamily:"var(--display)",fontWeight:800,marginBottom:4 }}>{customer.first_name} {customer.last_name}</h2>
+            <div style={{ display:"flex",flexDirection:"column",gap:3 }}>
+              {customer.phone && <span style={{ fontSize:13,color:"var(--text3)" }}>📞 {customer.phone}</span>}
+              {customer.email && <span style={{ fontSize:13,color:"var(--text3)" }}>✉ {customer.email}</span>}
+            </div>
+          </div>
+          <Btn small variant="danger" onClick={()=>onDelete(customer.id)}>Archive</Btn>
+        </div>
+        {/* Tabs */}
+        <div style={{ display:"flex",borderTop:"1px solid var(--border)" }}>
+          <button style={tabStyle("info")} onClick={()=>setTab("info")}>Info</button>
+          <button style={tabStyle("notes")} onClick={()=>setTab("notes")}>📋 Notes</button>
+          <button style={tabStyle("jobs")} onClick={()=>setTab("jobs")}>Jobs ({jobs.length})</button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex:1,overflowY:"auto",padding:16 }}>
+
+        {/* INFO TAB */}
+        {tab === "info" && (
+          <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
+            <Card style={{ padding:"14px 16px" }}>
+              <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12,fontFamily:"var(--display)" }}>Contact Information</div>
+              {[
+                ["Phone",   customer.phone],
+                ["Email",   customer.email],
+                ["Source",  customer.source],
+              ].filter(([,v])=>v).map(([l,v])=>(
+                <div key={l} style={{ display:"flex",gap:12,marginBottom:10,alignItems:"center" }}>
+                  <span style={{ fontSize:12,color:"var(--text3)",width:60,flexShrink:0 }}>{l}</span>
+                  <span style={{ fontSize:13,fontWeight:500 }}>{v}</span>
+                </div>
+              ))}
+            </Card>
+            <Card style={{ padding:"14px 16px" }}>
+              <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8,fontFamily:"var(--display)" }}>Stats</div>
+              <div style={{ display:"flex",gap:24 }}>
+                <div>
+                  <div style={{ fontSize:28,fontFamily:"var(--mono)",fontWeight:700,color:"var(--blue)" }}>{customer.job_count||0}</div>
+                  <div style={{ fontSize:11,color:"var(--text3)" }}>Total jobs</div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* NOTES TAB */}
+        {tab === "notes" && (
+          <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
+            <Card style={{ padding:"14px 16px" }}>
+              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12 }}>
+                <div>
+                  <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"var(--display)" }}>Internal Notes</div>
+                  <div style={{ fontSize:11,color:"var(--text3)",marginTop:2 }}>Visible to all techs</div>
+                </div>
+                {!editingNotes && <Btn small variant="secondary" onClick={()=>setEditingNotes(true)}>Edit</Btn>}
+              </div>
+              {editingNotes ? (
+                <>
+                  <textarea
+                    value={notes}
+                    onChange={e=>setNotes(e.target.value)}
+                    placeholder="Gate code, dogs, disability access, preferred contact method, system details, anything your techs need to know..."
+                    style={{ ...inputStyle, height:180, resize:"vertical", marginBottom:10 }}
+                    autoFocus
+                  />
+                  <div style={{ display:"flex",gap:8 }}>
+                    <Btn small onClick={saveNotes} disabled={savingNotes}>{savingNotes?"Saving…":"Save Notes"}</Btn>
+                    <Btn small variant="secondary" onClick={()=>{ setEditingNotes(false); setNotes(customer.notes||""); }}>Cancel</Btn>
+                  </div>
+                </>
+              ) : (
+                notes
+                  ? <p style={{ fontSize:14,color:"var(--text1)",lineHeight:1.7,whiteSpace:"pre-wrap" }}>{notes}</p>
+                  : <div style={{ fontSize:13,color:"var(--text4)",fontStyle:"italic",padding:"8px 0" }}>No notes yet. Tap Edit to add gate codes, pet info, access notes, disabilities, or anything your techs should know before arriving.</div>
+              )}
+            </Card>
+
+            {/* Warning card if notes exist */}
+            {notes && notes.toLowerCase().includes("dog") || notes && notes.toLowerCase().includes("pet") ? (
+              <div style={{ background:"#FFFBEB",border:"1px solid #FCD34D",borderRadius:10,padding:"12px 14px",display:"flex",gap:10,alignItems:"flex-start" }}>
+                <span style={{ fontSize:20 }}>🐕</span>
+                <div>
+                  <div style={{ fontSize:13,fontWeight:700,color:"#92400E",marginBottom:2 }}>Pet on property</div>
+                  <div style={{ fontSize:12,color:"#92400E" }}>Make sure techs are aware before arriving</div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* JOBS TAB */}
+        {tab === "jobs" && (
+          <div style={{ display:"flex",flexDirection:"column",gap:10 }}>
+            {loadingJobs ? <Spinner /> : jobs.length === 0 ? (
+              <Empty icon="🔧" title="No jobs yet" desc="No jobs found for this customer" />
+            ) : jobs.map(job => (
+              <Card key={job.id} style={{ padding:"14px 16px" }} >
+                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6 }}>
+                  <div>
+                    <div style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:3 }}>{job.job_number}</div>
+                    <div style={{ fontSize:15,fontWeight:700 }}>{job.title}</div>
+                  </div>
+                  <Chip status={job.status} />
+                </div>
+                <div style={{ fontSize:12,color:"var(--text3)" }}>
+                  {job.scheduled_start ? fmtDate(job.scheduled_start) : "Not scheduled"}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CustomersScreen() {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -487,53 +661,9 @@ function CustomersScreen() {
     catch(e) { alert(e.message); }
   }
 
-  // ── MOBILE DETAIL VIEW ──
+  // ── CUSTOMER DETAIL VIEW ──
   if (selected) {
-    return (
-      <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--surface)" }}>
-        {/* Back header */}
-        <div style={{ padding:"12px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:12,background:"var(--surface)",flexShrink:0 }}>
-          <button onClick={()=>setSelected(null)} style={{ background:"none",border:"none",color:"var(--blue)",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:0 }}>
-            ← Customers
-          </button>
-        </div>
-        {/* Detail */}
-        <div style={{ flex:1,overflowY:"auto",padding:20 }}>
-          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20 }}>
-            <div>
-              <h2 style={{ fontSize:22,fontFamily:"var(--display)",fontWeight:800,marginBottom:6 }}>{selected.first_name} {selected.last_name}</h2>
-              <div style={{ display:"flex",flexDirection:"column",gap:4,fontSize:13,color:"var(--text3)" }}>
-                {selected.phone && <span>📞 {selected.phone}</span>}
-                {selected.email && <span>✉ {selected.email}</span>}
-              </div>
-            </div>
-            <Btn small variant="danger" onClick={()=>handleDelete(selected.id)}>Archive</Btn>
-          </div>
-          <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
-            <Card style={{ padding:"14px 16px" }}>
-              <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10,fontFamily:"var(--display)" }}>Contact Info</div>
-              {[["Phone",selected.phone],["Email",selected.email],["Source",selected.source]].filter(([,v])=>v).map(([l,v])=>(
-                <div key={l} style={{ display:"flex",gap:12,marginBottom:8 }}>
-                  <span style={{ fontSize:12,color:"var(--text3)",width:60,flexShrink:0 }}>{l}</span>
-                  <span style={{ fontSize:13 }}>{v}</span>
-                </div>
-              ))}
-            </Card>
-            <Card style={{ padding:"14px 16px" }}>
-              <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8,fontFamily:"var(--display)" }}>Jobs</div>
-              <div style={{ fontSize:28,fontFamily:"var(--mono)",fontWeight:700,color:"var(--blue)" }}>{selected.job_count||0}</div>
-              <div style={{ fontSize:12,color:"var(--text3)" }}>total jobs</div>
-            </Card>
-            {selected.notes && (
-              <Card style={{ padding:"14px 16px" }}>
-                <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8,fontFamily:"var(--display)" }}>Notes</div>
-                <p style={{ fontSize:13,color:"var(--text2)",lineHeight:1.6,fontStyle:"italic" }}>"{selected.notes}"</p>
-              </Card>
-            )}
-          </div>
-        </div>
-      </div>
-    );
+    return <CustomerDetail customer={selected} onBack={()=>setSelected(null)} onDelete={handleDelete} />;
   }
 
   // ── LIST VIEW ──
@@ -683,7 +813,6 @@ function JobsScreen() {
                   {job.status==="en_route" && <Btn small variant="secondary" onClick={()=>handleStatusChange(job.id,"in_progress")}>→ Start Job</Btn>}
                   {job.status==="in_progress" && <Btn small onClick={()=>handleStatusChange(job.id,"completed")}>✓ Complete</Btn>}
                   <Btn small variant="secondary" onClick={()=>setEstimateJob(job)}>📋 Create Estimate</Btn>
-                  <Btn small variant="secondary" onClick={()=>setDetailJob(job)}>📝 Notes & Photos</Btn>
                 </div>
               </Card>
             ))}
@@ -1264,7 +1393,7 @@ function JobDetailModal({ job, onClose, onUpdated }) {
                   <div style={{ background: "var(--blue)", color: "#fff", padding: "9px 18px", borderRadius: 8, fontSize: 13, fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 6 }}>
                     📷 Upload Photo
                   </div>
-                  <input type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: "none" }} />
+                  <input type="file" accept="image/*" capture="environment" onChange={handlePhotoUpload} style={{ display: "none" }} />
                 </label>
                 <span style={{ fontSize: 12, color: "var(--text3)", marginLeft: 12 }}>JPG, PNG — takes photo or choose from camera roll</span>
               </div>
