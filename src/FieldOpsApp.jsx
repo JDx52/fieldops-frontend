@@ -1264,7 +1264,7 @@ function JobDetailModal({ job, onClose, onUpdated }) {
                   <div style={{ background: "var(--blue)", color: "#fff", padding: "9px 18px", borderRadius: 8, fontSize: 13, fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 6 }}>
                     📷 Upload Photo
                   </div>
-                  <input type="file" accept="image/*" capture="environment" onChange={handlePhotoUpload} style={{ display: "none" }} />
+                  <input type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: "none" }} />
                 </label>
                 <span style={{ fontSize: 12, color: "var(--text3)", marginLeft: 12 }}>JPG, PNG — takes photo or choose from camera roll</span>
               </div>
