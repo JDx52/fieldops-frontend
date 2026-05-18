@@ -664,7 +664,16 @@ function NewJobModal({ onClose, onSave }) {
   async function handleSave() {
     if(!form.customer_id||!form.location_id||!form.title){alert("Customer, location and title required");return;}
     try {
-      const job = await apiFetch("/jobs",{method:"POST",body:JSON.stringify(form)});
+      const payload = {
+        customer_id: form.customer_id,
+        location_id: form.location_id,
+        title: form.title,
+        description: form.description || undefined,
+        priority: form.priority || "normal",
+      };
+      if(form.scheduled_start) payload.scheduled_start = new Date(form.scheduled_start).toISOString();
+      if(form.scheduled_end) payload.scheduled_end = new Date(form.scheduled_end).toISOString();
+      const job = await apiFetch("/jobs",{method:"POST",body:JSON.stringify(payload)});
       onSave(job);
     } catch(e){alert(e.message);}
   }
