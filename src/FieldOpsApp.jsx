@@ -427,7 +427,6 @@ function CustomersScreen() {
   const [selected, setSelected] = useState(null);
   const [showNew, setShowNew] = useState(false);
   const [estimateJob, setEstimateJob] = useState(null);
-  const [detailJob, setDetailJob] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -638,7 +637,6 @@ function JobsScreen() {
                   {job.status==="in_progress" && <Btn small onClick={()=>handleStatusChange(job.id,"completed")}>✓ Complete</Btn>}
                   <Btn small variant="secondary" onClick={()=>setEstimateJob(job)}>📋 Create Estimate</Btn>
                   <Btn small variant="secondary" onClick={()=>setDetailJob(job)}>📝 Notes & Photos</Btn>
-                  const [detailJob, setDetailJob] = useState(null);
                 </div>
               </Card>
             ))}
