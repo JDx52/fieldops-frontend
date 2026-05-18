@@ -806,7 +806,13 @@ function JobsScreen() {
                 </div>
                 <div style={{ display:"flex",gap:16,fontSize:13,color:"var(--text2)",flexWrap:"wrap" }}>
                   <span>👤 {job.customer_name}</span>
-                  <span>📍 {job.address_line1 ? `${job.address_line1}, ${job.city}, ${job.state}` : `${job.city}, ${job.state}`}</span>
+                  href={`https://maps.google.com/?q=${encodeURIComponent(job.address_line1 ? `${job.address_line1}, ${job.city}, ${job.state}` : `${job.city}, ${job.state}`)}`}
+  target="_blank"
+  rel="noreferrer"
+  style={{ color:"var(--blue)",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:4 }}
+>
+  📍 {job.address_line1 ? `${job.address_line1}, ${job.city}, ${job.state}` : `${job.city}, ${job.state}`}
+</a>
                   {job.scheduled_start && <span>🕐 {new Date(job.scheduled_start).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>}
                 </div>
                 <div style={{ marginTop:10,display:"flex",gap:6,flexWrap:"wrap" }}>
