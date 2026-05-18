@@ -923,11 +923,6 @@ function AppShell() {
 // ════════════════════════════════════════════════════════════════
 //  ROOT
 // ════════════════════════════════════════════════════════════════
-export default function App() {
-  const { user } = useAuth();
-  return user ? <AppShell /> : <LoginScreen />;
-}
-
 function AppWithProviders() {
   return (
     <>
@@ -946,5 +941,4 @@ function AppInner() {
   return user ? <AppShell /> : <LoginScreen />;
 }
 
-// Override default export
-export { AppWithProviders as default };
+export default AppWithProviders;
