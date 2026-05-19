@@ -80,10 +80,14 @@ function PricebookPicker({ onClose, onSelect }) {
   );
 }
 
-export default function WorkOrder405() {
+export default function WorkOrder405({ prefill, onSave }) {
   const [form, setForm] = useState({
-    wo: "", date: "", customer: "", billingAddress: "", phone: "", cell: "", email: "",
-    complaint: "", workedBy: "", unitAddress: "", unitPhone: "", unitCell: "",
+    wo: "", date: new Date().toISOString().slice(0,10),
+    customer: prefill?.customer||"", billingAddress: prefill?.billingAddress||"",
+    phone: prefill?.phone||"", cell: prefill?.cell||"", email: prefill?.email||"",
+    complaint: prefill?.complaint||"", workedBy: prefill?.workedBy||"",
+    unitAddress: prefill?.unitAddress||prefill?.billingAddress||"",
+    unitPhone: "", unitCell: "",
     jobTypes: [],
     equipment: [{ make: "", model: "", serial: "", location: "", area: "" }],
     technician: "", timeIn: "", timeOut: "", travelTime: "", regHrs: "", otHrs: "", rate: "", amount: "",
@@ -396,7 +400,7 @@ export default function WorkOrder405() {
 
           {/* SUBMIT */}
           <div style={{ display: "flex", justifyContent: "center", marginTop: 20, paddingBottom: 16 }}>
-            <button onClick={() => setSubmitted(true)}
+            <button onClick={() => { const wo = {...form, id: Date.now(), savedAt: new Date().toISOString()}; if(onSave) onSave(wo); setSubmitted(true); }}
               style={{ background: "#1a3a6b", color: "#fff", border: "none", borderRadius: 10, padding: "14px 48px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
               Submit Work Order
             </button>
