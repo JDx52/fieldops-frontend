@@ -162,8 +162,27 @@ function PricebookPicker({ onClose, onSelect }) {
 
 export default function WorkOrder405({ prefill, onSave, readOnly }) {
   const savedData = readOnly || null;
+
+  function generateWO() {
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(2);
+    const mm = String(now.getMonth()+1).padStart(2,"0");
+    const seq = String(now.getTime()).slice(-4);
+    return `WO-${yy}${mm}${seq}`;
+  }
+
+  const [users, setUsers] = useState([]);
+  const [customers, setCustomers] = useState([]);
+
+  useEffect(() => {
+    // Load techs for dropdown
+    const API = process.env.REACT_APP_API_URL || "https://fieldops-api-production-b341.up.railway.app/v1";
+    const hdrs = { Authorization: `Bearer ${localStorage.getItem("fieldops_token")}` };
+    fetch(`${API}/users?limit=100`, { headers: hdrs }).then(r=>r.json()).then(d=>setUsers(Array.isArray(d.data)?d.data:[])).catch(()=>{});
+    fetch(`${API}/customers?limit=100`, { headers: hdrs }).then(r=>r.json()).then(d=>setCustomers(Array.isArray(d.data)?d.data:[])).catch(()=>{});
+  }, []);
   const [form, setForm] = useState({
-    wo: savedData?.wo || "", date: savedData?.date || new Date().toISOString().slice(0,10),
+    wo: savedData?.wo || generateWO(), date: savedData?.date || new Date().toISOString().slice(0,10),
     customer: savedData?.customer || prefill?.customer||"", billingAddress: savedData?.billingAddress || prefill?.billingAddress||"",
     phone: savedData?.phone || prefill?.phone||"", cell: savedData?.cell || prefill?.cell||"", email: savedData?.email || prefill?.email||"",
     complaint: savedData?.complaint || prefill?.complaint||"", workedBy: savedData?.workedBy || prefill?.workedBy||"",
@@ -231,7 +250,7 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
   }
 
   function resetForm() {
-    setForm({ wo: "", date: "", customer: "", billingAddress: "", phone: "", cell: "", email: "", complaint: "", workedBy: "", unitAddress: "", unitPhone: "", unitCell: "", jobTypes: [], equipment: [{ make: "", model: "", serial: "", location: "", area: "" }], technician: "", timeIn: "", timeOut: "", travelTime: "", regHrs: "", otHrs: "", rate: "", amount: "", checklist: [], descriptionOfWork: "", recommendations: "", materials: Array(8).fill(null).map(() => ({ qty: "", description: "", unitPrice: "", amount: "" })), serviceType: [], totalLabor: "", totalMaterials: "", tax: "", totalAmount: "", printName: "", signature: "", signDate: "" });
+    setForm({ wo: generateWO(), date: new Date().toISOString().slice(0,10), customer: "", billingAddress: "", phone: "", cell: "", email: "", complaint: "", workedBy: "", unitAddress: "", unitPhone: "", unitCell: "", jobTypes: [], equipment: [{ make: "", model: "", serial: "", location: "", area: "" }], technician: "", timeIn: "", timeOut: "", travelTime: "", regHrs: "", otHrs: "", rate: "", amount: "", checklist: [], descriptionOfWork: "", recommendations: "", materials: Array(8).fill(null).map(() => ({ qty: "", description: "", unitPrice: "", amount: "" })), serviceType: [], totalAmount: "", printName: "", signature: "", signDate: "" });
     setSubmitted(false);
   }
 
@@ -278,8 +297,7 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
           </div>
           <div style={{ flexShrink: 0, textAlign: "right" }}>
             <div style={{ fontSize: 10, color: "#666", marginBottom: 2 }}>WO #</div>
-            <input value={form.wo} onChange={e => set("wo", e.target.value)}
-              style={{ width: 80, border: "2px solid #1a3a6b", borderRadius: 4, fontSize: 22, fontWeight: 900, textAlign: "center", color: "#1a3a6b", padding: "2px 4px" }} placeholder="0000" />
+            <div style={{ minWidth: 110, border: "2px solid #1a3a6b", borderRadius: 4, fontSize: 16, fontWeight: 900, textAlign: "center", color: "#1a3a6b", padding: "5px 8px", background: "#f0f4f8", fontFamily: "monospace" }}>{form.wo}</div>
           </div>
         </div>
 
@@ -299,7 +317,21 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
               <label style={s.label}>Customer</label>
-              <input style={s.input} value={form.customer} onChange={e => set("customer", e.target.value)} placeholder="Full name" />
+              {customers.length > 0 && !prefill?.customer ? (
+                <select style={{ ...s.input, background: "transparent" }} value={form.customer} onChange={e => {
+                  const c = customers.find(x => `${x.first_name} ${x.last_name}` === e.target.value);
+                  set("customer", e.target.value);
+                  if (c) {
+                    if (c.phone) set("phone", c.phone);
+                    if (c.email) set("email", c.email);
+                  }
+                }}>
+                  <option value="">Select customer…</option>
+                  {customers.map(c => <option key={c.id}>{c.first_name} {c.last_name}</option>)}
+                </select>
+              ) : (
+                <input style={s.input} value={form.customer} onChange={e => set("customer", e.target.value)} placeholder="Full name" />
+              )}
             </div>
             <div>
               <label style={s.label}>Date</label>
@@ -374,7 +406,17 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
               </thead>
               <tbody>
                 <tr style={{ borderBottom: "1px solid #ddd" }}>
-                  {[["technician",""],["timeIn","8:00 AM"],["timeOut",""],["travelTime",""],["regHrs",""],["otHrs",""],["rate",""],["amount",""]].map(([k, ph]) => (
+                  <td style={s.cell}>
+                    {users.length > 0 ? (
+                      <select style={{ ...s.input, background: "transparent" }} value={form.technician} onChange={e => set("technician", e.target.value)}>
+                        <option value="">Select tech…</option>
+                        {users.map(u => <option key={u.id}>{u.name}</option>)}
+                      </select>
+                    ) : (
+                      <input style={s.input} value={form.technician} onChange={e => set("technician", e.target.value)} />
+                    )}
+                  </td>
+                  {[["timeIn","8:00 AM"],["timeOut",""],["travelTime",""],["regHrs",""],["otHrs",""],["rate",""],["amount",""]].map(([k, ph]) => (
                     <td key={k} style={s.cell}><input style={s.input} value={form[k]} onChange={e => set(k, e.target.value)} placeholder={ph} /></td>
                   ))}
                 </tr>
