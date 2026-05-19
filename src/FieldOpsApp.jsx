@@ -292,17 +292,15 @@ function CustomerDetail({ customer, onBack, onDelete }) {
     <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--bg)" }}>
       {detailJob && <JobDetailModal job={detailJob} onClose={()=>setDetailJob(null)} />}
       {viewWO && (
-        <Modal title={`Work Order — ${viewWO.wo||"#"}`} onClose={()=>setViewWO(null)} width={700}>
-          <div style={{ padding:"16px 24px",display:"flex",flexDirection:"column",gap:10 }}>
-            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
-              {[["Customer",viewWO.customer],["Date",viewWO.date],["Phone",viewWO.phone],["Address",viewWO.billingAddress],["Complaint",viewWO.complaint],["Tech",viewWO.technician]].map(([l,v])=>v?<div key={l}><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2 }}>{l}</div><div style={{ fontSize:13 }}>{v}</div></div>:null)}
+        <div style={{ position:"fixed",inset:0,background:"#00000070",zIndex:200,display:"flex",alignItems:"flex-start",justifyContent:"center",overflowY:"auto",padding:"20px 0" }}>
+          <div style={{ background:"#fff",borderRadius:12,width:"100%",maxWidth:920,margin:"0 16px",boxShadow:"0 24px 64px #00000040",position:"relative" }}>
+            <div style={{ position:"sticky",top:0,background:"#fff",borderBottom:"1px solid #e4e8ef",padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",zIndex:10,borderRadius:"12px 12px 0 0" }}>
+              <div style={{ fontSize:15,fontWeight:700,fontFamily:"var(--display)" }}>Work Order — {viewWO.customer||"Customer"}</div>
+              <button onClick={()=>setViewWO(null)} style={{ background:"none",border:"none",fontSize:22,color:"#8A94A6",cursor:"pointer",lineHeight:1 }}>×</button>
             </div>
-            {viewWO.descriptionOfWork && <div><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4 }}>Description of Work</div><div style={{ fontSize:13,background:"var(--surface2)",padding:"10px 12px",borderRadius:8,lineHeight:1.6 }}>{viewWO.descriptionOfWork}</div></div>}
-            {viewWO.materials?.some(m=>m.description) && <div><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6 }}>Materials</div><table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}><thead><tr style={{ background:"var(--surface2)" }}>{["Qty","Description","Unit Price","Amount"].map(h=><th key={h} style={{ padding:"6px 10px",textAlign:"left",fontSize:11,fontWeight:600,color:"var(--text3)" }}>{h}</th>)}</tr></thead><tbody>{viewWO.materials.filter(m=>m.description).map((m,i)=><tr key={i} style={{ borderBottom:"1px solid var(--border)" }}><td style={{ padding:"6px 10px" }}>{m.qty}</td><td style={{ padding:"6px 10px" }}>{m.description}</td><td style={{ padding:"6px 10px" }}>{m.unitPrice?`$${m.unitPrice}`:""}</td><td style={{ padding:"6px 10px",fontWeight:600 }}>{m.amount?`$${m.amount}`:""}</td></tr>)}</tbody></table></div>}
-            <div style={{ display:"flex",justifyContent:"flex-end",marginTop:8 }}><div style={{ background:"var(--blue-lt)",border:"1px solid var(--blue-bd)",borderRadius:8,padding:"10px 20px",textAlign:"right" }}><div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>TOTAL DUE</div><div style={{ fontSize:22,fontFamily:"var(--mono)",fontWeight:700,color:"var(--blue)" }}>{viewWO.totalAmount?`$${viewWO.totalAmount}`:"—"}</div></div></div>
+            <WorkOrder405 prefill={null} readOnly={viewWO} onSave={null} />
           </div>
-          <div style={{ padding:"12px 24px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end" }}><Btn variant="secondary" onClick={()=>setViewWO(null)}>Close</Btn></div>
-        </Modal>
+        </div>
       )}
       <div style={{ background:"var(--surface)",borderBottom:"1px solid var(--border)",flexShrink:0 }}>
         <div style={{ padding:"12px 16px" }}><button onClick={onBack} style={{ background:"none",border:"none",color:"var(--blue)",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:0 }}>← Customers</button></div>
