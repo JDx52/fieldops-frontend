@@ -551,7 +551,11 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
           {/* SUBMIT */}
           {!isReadOnly && (
           <div style={{ display: "flex", justifyContent: "center", marginTop: 20, paddingBottom: 16 }}>
-            <button onClick={() => { const wo = {...form, id: form.wo || Date.now(), savedAt: new Date().toISOString()}; if(onSave) onSave(wo); setSubmitted(true); }}
+            <button onClick={async () => {
+              const wo = {...form, savedAt: new Date().toISOString()};
+              if(onSave) await onSave(wo);
+              setSubmitted(true);
+            }}
               style={{ background: "#1a3a6b", color: "#fff", border: "none", borderRadius: 10, padding: "14px 48px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
               Submit Work Order
             </button>
