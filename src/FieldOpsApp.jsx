@@ -289,15 +289,16 @@ function CustomerDetail({ customer, onBack, onDelete }) {
   const tabStyle = t => ({ flex:1,padding:"10px 0",background:"none",border:"none",borderBottom:tab===t?"2px solid var(--blue)":"2px solid transparent",color:tab===t?"var(--blue)":"var(--text3)",fontSize:13,fontWeight:tab===t?700:400,cursor:"pointer",transition:"all .15s" });
 
   return (
-    <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--bg)" }}>
+    <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--bg)",position:"relative" }}>
       {detailJob && <JobDetailModal job={detailJob} onClose={()=>setDetailJob(null)} />}
       {viewWO && (
-        <div style={{ position:"fixed",inset:0,background:"#00000070",zIndex:200,display:"flex",alignItems:"flex-start",justifyContent:"center",overflowY:"auto",padding:"20px 0" }}>
-          <div style={{ background:"#fff",borderRadius:12,width:"100%",maxWidth:920,margin:"0 16px",boxShadow:"0 24px 64px #00000040",position:"relative" }}>
-            <div style={{ position:"sticky",top:0,background:"#fff",borderBottom:"1px solid #e4e8ef",padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",zIndex:10,borderRadius:"12px 12px 0 0" }}>
-              <div style={{ fontSize:15,fontWeight:700,fontFamily:"var(--display)" }}>Work Order — {viewWO.customer||"Customer"}</div>
-              <button onClick={()=>setViewWO(null)} style={{ background:"none",border:"none",fontSize:22,color:"#8A94A6",cursor:"pointer",lineHeight:1 }}>×</button>
-            </div>
+        <div style={{ position:"absolute",inset:0,background:"#fff",zIndex:50,display:"flex",flexDirection:"column",overflow:"hidden" }}>
+          <div style={{ background:"var(--surface)",borderBottom:"1px solid var(--border)",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0 }}>
+            <button onClick={()=>setViewWO(null)} style={{ background:"none",border:"none",color:"var(--blue)",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:0 }}>← Back</button>
+            <div style={{ fontSize:14,fontWeight:700 }}>Work Order — {viewWO.customer||"Customer"}</div>
+            <div style={{ width:60 }} />
+          </div>
+          <div style={{ flex:1,overflowY:"auto" }}>
             <WorkOrder405 prefill={null} readOnly={viewWO} onSave={null} />
           </div>
         </div>
