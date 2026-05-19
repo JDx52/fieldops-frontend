@@ -178,7 +178,7 @@ const NAV_ITEMS = [
   {id:"/",icon:"⊞",label:"Dashboard"},
   {id:"/dispatch",icon:"📡",label:"Dispatch"},
   {id:"/customers",icon:"👥",label:"Customers"},
-  {id:"/invoices",icon:"📄",label:"Invoices"},
+  {id:"/invoices",icon:"📄",label:"Work Orders"},
   {id:"/jobs",icon:"🔧",label:"Jobs"},
   {id:"/team",icon:"👷",label:"Team"},
   {id:"/workorder",icon:"📋",label:"Work Order"},
@@ -218,7 +218,7 @@ function Sidebar({ collapsed, setCollapsed }) {
 }
 
 // ── TOP BAR ──
-const PAGE_TITLES = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/invoices":"Invoices","/jobs":"Jobs","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook"};
+const PAGE_TITLES = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/invoices":"Work Orders","/jobs":"Jobs","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook"};
 function TopBar() {
   const { route } = useRouter();
   return <div style={{ height:56,background:"var(--surface)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",padding:"0 24px",gap:16,flexShrink:0 }}><h1 style={{ flex:1,fontSize:18,fontFamily:"var(--display)",fontWeight:700,letterSpacing:"-0.01em" }}>{PAGE_TITLES[route]||"FieldOps"}</h1><div style={{ fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)",whiteSpace:"nowrap" }}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div></div>;
@@ -560,32 +560,133 @@ function DispatchScreen() {
 // ── INVOICES ──
 function InvoicesScreen() {
   const [list, setList] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
   const [selected, setSelected] = useState(null);
-  useEffect(()=>{
-    setLoading(true);
-    apiFetch(`/invoices?limit=100${filter!=="all"?`&status=${filter}`:""}`).then(d=>setList(Array.isArray(d)?d:[])).catch(()=>{}).finally(()=>setLoading(false));
-  },[filter]);
-  async function sendInvoice(id) { try{await apiFetch(`/invoices/${id}/send`,{method:"POST"});setList(p=>p.map(i=>i.id===id?{...i,status:"sent"}:i));alert("Invoice sent!");}catch(e){alert(e.message);} }
+  const [search, setSearch] = useState("");
+
+  useEffect(() => { setList(loadWorkOrders()); }, []);
+
+  function deleteWO(id) {
+    if (!window.confirm("Delete this work order?")) return;
+    const updated = list.filter(w => w.id !== id);
+    localStorage.setItem(WO_KEY, JSON.stringify(updated));
+    setList(updated);
+    setSelected(null);
+  }
+
+  const filtered = list.filter(w =>
+    !search ||
+    (w.customer||"").toLowerCase().includes(search.toLowerCase()) ||
+    (w.wo||"").includes(search) ||
+    (w.complaint||"").toLowerCase().includes(search.toLowerCase())
+  );
+
   if (selected) {
-    const balance=Math.round(((selected.total||0)-(selected.amount_paid||0))*100)/100;
     return (
       <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--surface)" }}>
-        <div style={{ padding:"12px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:12,flexShrink:0 }}><button onClick={()=>setSelected(null)} style={{ background:"none",border:"none",color:"var(--blue)",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:0 }}>← Invoices</button></div>
+        <div style={{ padding:"12px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
+          <button onClick={()=>setSelected(null)} style={{ background:"none",border:"none",color:"var(--blue)",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:0 }}>← Work Orders</button>
+          <Btn small variant="danger" onClick={()=>deleteWO(selected.id)}>Delete</Btn>
+        </div>
         <div style={{ flex:1,overflowY:"auto",padding:20 }}>
-          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16 }}><div><div style={{ fontSize:12,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:4 }}>{selected.invoice_number}</div><div style={{ fontSize:18,fontFamily:"var(--display)",fontWeight:800,marginBottom:4 }}>{selected.customer_name}</div><Chip status={selected.status} /></div><div style={{ textAlign:"right" }}><div style={{ fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2 }}>{selected.status==="paid"?"Paid":"Balance"}</div><div style={{ fontSize:28,fontFamily:"var(--mono)",fontWeight:700,color:selected.status==="paid"?"var(--green)":balance>0?"var(--red)":"var(--green)" }}>{selected.status==="paid"?fmt$(selected.amount_paid):fmt$(balance)}</div></div></div>
-          <div style={{ display:"flex",gap:8,marginBottom:20,flexWrap:"wrap" }}>{selected.status==="draft"&&<Btn onClick={()=>sendInvoice(selected.id)}>✉ Send</Btn>}<Btn variant="secondary">⬇ Download</Btn></div>
-          <div style={{ display:"flex",flexDirection:"column",gap:10 }}>{[{label:"Invoice Total",val:fmt$(selected.total),color:"var(--text1)"},{label:"Amount Paid",val:fmt$(selected.amount_paid),color:"var(--green)"},{label:"Balance Due",val:fmt$(balance),color:balance>0?"var(--red)":"var(--green)"}].map((s,i)=><Card key={i} style={{ padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center" }}><span style={{ fontSize:13,color:"var(--text2)" }}>{s.label}</span><span style={{ fontSize:18,fontFamily:"var(--mono)",fontWeight:700,color:s.color }}>{s.val}</span></Card>)}</div>
+          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20 }}>
+            <div>
+              <div style={{ fontSize:12,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:4 }}>WO# {selected.wo||"—"}</div>
+              <div style={{ fontSize:22,fontFamily:"var(--display)",fontWeight:800,marginBottom:4 }}>{selected.customer||"—"}</div>
+              <div style={{ fontSize:13,color:"var(--text3)" }}>{selected.date||"No date"}</div>
+            </div>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4 }}>Total Due</div>
+              <div style={{ fontSize:32,fontFamily:"var(--mono)",fontWeight:700,color:"var(--blue)" }}>{selected.totalAmount?`$${selected.totalAmount}`:"—"}</div>
+            </div>
+          </div>
+
+          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16 }}>
+            {[["Phone",selected.phone],["Cell",selected.cell],["Email",selected.email],["Address",selected.billingAddress],["Complaint",selected.complaint],["Technician",selected.technician],["Time In",selected.timeIn],["Time Out",selected.timeOut]].filter(([,v])=>v).map(([l,v])=>(
+              <div key={l} style={{ background:"var(--surface2)",borderRadius:8,padding:"10px 12px" }}>
+                <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3 }}>{l}</div>
+                <div style={{ fontSize:13 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+
+          {selected.checklist?.length > 0 && (
+            <Card style={{ padding:"14px 16px",marginBottom:12 }}>
+              <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10 }}>Service Checklist</div>
+              <div style={{ display:"flex",flexWrap:"wrap",gap:6 }}>
+                {selected.checklist.map(item=><span key={item} style={{ background:"var(--green-lt)",color:"var(--green)",border:"1px solid var(--green-bd)",fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:100 }}>✓ {item}</span>)}
+              </div>
+            </Card>
+          )}
+
+          {selected.descriptionOfWork && (
+            <Card style={{ padding:"14px 16px",marginBottom:12 }}>
+              <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8 }}>Description of Work</div>
+              <div style={{ fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap" }}>{selected.descriptionOfWork}</div>
+            </Card>
+          )}
+
+          {selected.recommendations && (
+            <Card style={{ padding:"14px 16px",marginBottom:12 }}>
+              <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8 }}>Recommendations</div>
+              <div style={{ fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap" }}>{selected.recommendations}</div>
+            </Card>
+          )}
+
+          {selected.materials?.some(m=>m.description) && (
+            <Card style={{ padding:"14px 16px",marginBottom:12 }}>
+              <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10 }}>Materials</div>
+              <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+                <thead><tr style={{ background:"var(--surface2)" }}>{["Qty","Description","Unit Price","Amount"].map(h=><th key={h} style={{ padding:"6px 10px",textAlign:"left",fontSize:11,fontWeight:600,color:"var(--text3)",borderBottom:"1px solid var(--border)" }}>{h}</th>)}</tr></thead>
+                <tbody>{selected.materials.filter(m=>m.description).map((m,i)=><tr key={i} style={{ borderBottom:"1px solid var(--border)" }}><td style={{ padding:"8px 10px" }}>{m.qty||"1"}</td><td style={{ padding:"8px 10px" }}>{m.description}</td><td style={{ padding:"8px 10px" }}>{m.unitPrice?`$${m.unitPrice}`:""}</td><td style={{ padding:"8px 10px",fontWeight:600,color:"var(--green)" }}>{m.amount?`$${m.amount}`:""}</td></tr>)}</tbody>
+              </table>
+              <div style={{ display:"flex",justifyContent:"flex-end",marginTop:12 }}>
+                <div style={{ background:"var(--blue-lt)",border:"1px solid var(--blue-bd)",borderRadius:8,padding:"10px 20px",textAlign:"right" }}>
+                  <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>TOTAL DUE</div>
+                  <div style={{ fontSize:22,fontFamily:"var(--mono)",fontWeight:700,color:"var(--blue)" }}>{selected.totalAmount?`$${selected.totalAmount}`:"—"}</div>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {selected.printName && (
+            <Card style={{ padding:"14px 16px" }}>
+              <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8 }}>Signature</div>
+              <div style={{ fontSize:13 }}>{selected.printName} · {selected.signDate||""}</div>
+            </Card>
+          )}
         </div>
       </div>
     );
   }
+
   return (
     <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
-      <div style={{ padding:"12px 16px",borderBottom:"1px solid var(--border)",background:"var(--surface)",flexShrink:0 }}><div style={{ fontSize:16,fontFamily:"var(--display)",fontWeight:700,marginBottom:10 }}>Invoices</div><div style={{ display:"flex",gap:4,flexWrap:"wrap" }}>{["all","draft","sent","partial","overdue","paid"].map(s=><button key={s} onClick={()=>setFilter(s)} style={{ fontSize:11,padding:"4px 10px",borderRadius:100,background:filter===s?"var(--blue)":"var(--surface2)",color:filter===s?"#fff":"var(--text3)",border:filter===s?"none":"1px solid var(--border)",cursor:"pointer",textTransform:"capitalize",fontWeight:filter===s?600:400 }}>{s}</button>)}</div></div>
+      <div style={{ padding:"12px 16px",borderBottom:"1px solid var(--border)",background:"var(--surface)",flexShrink:0 }}>
+        <div style={{ fontSize:16,fontFamily:"var(--display)",fontWeight:700,marginBottom:10 }}>Work Orders</div>
+        <div style={{ position:"relative" }}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search customer, WO#, complaint…" style={{ ...inputStyle,paddingLeft:28 }} />
+          <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"var(--text3)",fontSize:12 }}>⌕</span>
+        </div>
+      </div>
       <div style={{ flex:1,overflowY:"auto" }}>
-        {loading?<Spinner />:list.length===0?<EmptyState icon="📄" title="No invoices" desc="Create estimates from the Jobs tab to generate invoices" />:list.map(inv=>{const balance=Math.round(((inv.total||0)-(inv.amount_paid||0))*100)/100;return<div key={inv.id} onClick={()=>setSelected(inv)} style={{ padding:"14px 16px",borderBottom:"1px solid var(--border)",cursor:"pointer",transition:"background .1s" }} onMouseEnter={e=>e.currentTarget.style.background="var(--surface2)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6 }}><div><div style={{ fontSize:12,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:2 }}>{inv.invoice_number}</div><div style={{ fontSize:14,fontWeight:600 }}>{inv.customer_name}</div></div><div style={{ fontSize:16,fontFamily:"var(--mono)",fontWeight:700,color:inv.status==="paid"?"var(--green)":inv.status==="overdue"?"var(--red)":"var(--text1)" }}>{inv.status==="paid"?fmt$(inv.amount_paid):fmt$(balance)}</div></div><div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}><span style={{ fontSize:11,color:"var(--text3)" }}>Due {fmtDate(inv.due_date)}</span><Chip status={inv.status} /></div></div>;})}
+        {filtered.length===0
+          ? <EmptyState icon="📋" title="No work orders yet" desc="Submit a work order from the Jobs tab to see it here" />
+          : filtered.map(wo=>(
+            <div key={wo.id} onClick={()=>setSelected(wo)} style={{ padding:"14px 16px",borderBottom:"1px solid var(--border)",cursor:"pointer",transition:"background .1s" }} onMouseEnter={e=>e.currentTarget.style.background="var(--surface2)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4 }}>
+                <div>
+                  <div style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:2 }}>WO# {wo.wo||"—"}</div>
+                  <div style={{ fontSize:14,fontWeight:600 }}>{wo.customer||"Unknown Customer"}</div>
+                  <div style={{ fontSize:12,color:"var(--text3)",marginTop:2 }}>{wo.complaint||"No description"}</div>
+                </div>
+                <div style={{ textAlign:"right",flexShrink:0 }}>
+                  <div style={{ fontSize:16,fontFamily:"var(--mono)",fontWeight:700,color:"var(--green)" }}>{wo.totalAmount?`$${wo.totalAmount}`:"—"}</div>
+                  <div style={{ fontSize:11,color:"var(--text3)",marginTop:2 }}>{wo.date||"No date"}</div>
+                </div>
+              </div>
+            </div>
+          ))
+        }
       </div>
     </div>
   );
@@ -666,12 +767,12 @@ function NewMemberModal({ onClose, onSave }) {
 }
 
 // ── APP SHELL ──
-const PAGE_TITLES_MAP = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/jobs":"Jobs","/invoices":"Invoices","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook"};
+const PAGE_TITLES_MAP = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/jobs":"Jobs","/invoices":"Work Orders","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook"};
 const MOBILE_NAV = [
   {id:"/",icon:"⊞",label:"Home"},
   {id:"/jobs",icon:"🔧",label:"Jobs"},
   {id:"/customers",icon:"👥",label:"Customers"},
-  {id:"/invoices",icon:"📄",label:"Invoices"},
+  {id:"/invoices",icon:"📄",label:"Work Orders"},
   {id:"/workorder",icon:"📋",label:"Work Order"},
 ];
 
