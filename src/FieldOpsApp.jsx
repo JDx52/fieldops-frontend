@@ -126,8 +126,8 @@ function Btn({ children, variant="primary", onClick, small, disabled, full, styl
   return <button onClick={disabled?undefined:onClick} style={{ ...variants[variant],borderRadius:8,fontWeight:500,padding:small?"5px 12px":"9px 18px",fontSize:small?12:13,opacity:disabled?.5:1,cursor:disabled?"not-allowed":"pointer",transition:"all .12s",width:full?"100%":"auto",...sx }} onMouseEnter={e=>{if(!disabled)e.currentTarget.style.filter="brightness(.9)"}} onMouseLeave={e=>e.currentTarget.style.filter=""}>{children}</button>;
 }
 
-function Card({ children, style:sx={}, className="" }) {
-  return <div className={className} style={{ background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,...sx }}>{children}</div>;
+function Card({ children, style:sx={}, className="", onClick }) {
+  return <div className={className} onClick={onClick} style={{ background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,...sx }}>{children}</div>;
 }
 
 function Spinner() {
@@ -281,6 +281,12 @@ function CustomerDetail({ customer, onBack, onDelete }) {
     apiFetch(`/customers/${customer.id}/jobs`).then(d=>setJobs(Array.isArray(d)?d:[])).catch(()=>setJobs([])).finally(()=>setLoadingJobs(false));
     const allWOs = loadWorkOrders();
     setWorkOrders(allWOs.filter(w => w.customerId === customer.id || w.customer === `${customer.first_name} ${customer.last_name}`));
+    const refreshWOs = () => {
+      const fresh = loadWorkOrders();
+      setWorkOrders(fresh.filter(w => w.customerId === customer.id || w.customer === `${customer.first_name} ${customer.last_name}`));
+    };
+    window.addEventListener("focus", refreshWOs);
+    return () => window.removeEventListener("focus", refreshWOs);
   }, [customer.id]);
 
   async function saveNotes() {
@@ -599,7 +605,12 @@ function InvoicesScreen() {
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState("");
 
-  useEffect(() => { setList(loadWorkOrders()); }, []);
+  useEffect(() => {
+    setList(loadWorkOrders());
+    const handler = () => setList(loadWorkOrders());
+    window.addEventListener("focus", handler);
+    return () => window.removeEventListener("focus", handler);
+  }, []);
 
   function deleteWO(id) {
     if (!window.confirm("Delete this work order?")) return;
@@ -827,7 +838,7 @@ function AppShell() {
     "/invoices": <InvoicesScreen />,
     "/jobs": <JobsScreen />,
     "/team": <TeamScreen />,
-    "/workorder": <WorkOrder405 prefill={currentJob} onSave={wo=>{ saveWorkOrder({...wo,id:wo.id||Date.now(),customerId:currentJob?.customerId}); setCurrentJob(null); }} />,
+    "/workorder": <WorkOrder405 prefill={currentJob} onSave={wo=>{ saveWorkOrder({...wo,id:wo.wo||Date.now(),customerId:currentJob?.customerId}); setCurrentJob(null); }} />,
     "/pricebook": <Pricebook />,
   };
 
