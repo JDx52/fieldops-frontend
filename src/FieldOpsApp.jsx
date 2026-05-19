@@ -570,31 +570,188 @@ function DispatchScreen() {
   const [date, setDate] = useState(new Date().toISOString().slice(0,10));
   const [techs, setTechs] = useState([]);
   const [assigning, setAssigning] = useState({});
+  const [view, setView] = useState("list"); // "list" | "calendar"
+  const [weekJobs, setWeekJobs] = useState([]);
+  const [weekLoading, setWeekLoading] = useState(false);
+
   useEffect(()=>{apiFetch("/users?limit=100").then(d=>setTechs(Array.isArray(d)?d:[])).catch(()=>{});},[]);
+
   useEffect(()=>{
     setLoading(true);
     apiFetch(`/dispatch?date=${date}`).then(d=>setData(d)).catch(()=>setData({technicians:[],unassigned:[]})).finally(()=>setLoading(false));
   },[date]);
+
+  // Load full week of jobs for calendar view
+  useEffect(()=>{
+    if(view!=="calendar") return;
+    setWeekLoading(true);
+    const mon = getWeekStart(date);
+    const days = Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(d.getDate()+i); return d.toISOString().slice(0,10); });
+    Promise.all(days.map(d=>apiFetch(`/dispatch?date=${d}`).catch(()=>({technicians:[],unassigned:[]}))))
+      .then(results=>{
+        const all = [];
+        results.forEach((r,i)=>{
+          const d = days[i];
+          (r.technicians||[]).forEach(tech=>(tech.jobs||[]).forEach(job=>all.push({...job,_date:d,_tech:tech.name})));
+          (r.unassigned||[]).forEach(job=>all.push({...job,_date:d,_tech:null}));
+        });
+        setWeekJobs(all);
+      }).finally(()=>setWeekLoading(false));
+  },[view, date]);
+
+  function getWeekStart(dateStr) {
+    const d = new Date(dateStr);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day===0?-6:1); // Monday
+    return new Date(d.setDate(diff));
+  }
+
+  function getWeekDays() {
+    const mon = getWeekStart(date);
+    return Array.from({length:7},(_,i)=>{
+      const d = new Date(mon);
+      d.setDate(d.getDate()+i);
+      return { date: d.toISOString().slice(0,10), label: d.toLocaleDateString("en-US",{weekday:"short"}), day: d.getDate(), isToday: d.toISOString().slice(0,10)===new Date().toISOString().slice(0,10) };
+    });
+  }
+
+  function prevWeek() {
+    const d = new Date(date); d.setDate(d.getDate()-7); setDate(d.toISOString().slice(0,10));
+  }
+  function nextWeek() {
+    const d = new Date(date); d.setDate(d.getDate()+7); setDate(d.toISOString().slice(0,10));
+  }
+
   async function assignTech(jobId, techId) {
     if(!techId)return;
     setAssigning(p=>({...p,[jobId]:true}));
     try{await apiFetch(`/jobs/${jobId}`,{method:"PATCH",body:JSON.stringify({technician_ids:[techId]})});const d=await apiFetch(`/dispatch?date=${date}`);setData(d);}catch(e){alert(e.message);}
     setAssigning(p=>({...p,[jobId]:false}));
   }
-  if(loading)return <div style={{ flex:1,display:"flex",alignItems:"center",justifyContent:"center" }}><Spinner /></div>;
+
   const dispatchTechs=data?.technicians||[];
   const unassigned=data?.unassigned||[];
+  const weekDays = getWeekDays();
+
+  const STATUS_COLORS = {
+    scheduled:"#2563EB", in_progress:"#D97706", en_route:"#7C3AED",
+    completed:"#0D7B4E", cancelled:"#6B7280", on_hold:"#DC2626",
+  };
+
   return (
     <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
-      <div style={{ padding:"12px 20px",background:"var(--surface)",borderBottom:"1px solid var(--border)",display:"flex",gap:12,alignItems:"center" }}>
-        <input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{ ...inputStyle,width:"auto",padding:"6px 10px" }} />
-        <span style={{ fontSize:13,color:"var(--text3)" }}>{dispatchTechs.length} technician{dispatchTechs.length!==1?"s":""} · {unassigned.length} unassigned</span>
+      {/* Header */}
+      <div style={{ padding:"12px 20px",background:"var(--surface)",borderBottom:"1px solid var(--border)",display:"flex",gap:12,alignItems:"center",flexWrap:"wrap" }}>
+        {view==="calendar" ? (
+          <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+            <button onClick={prevWeek} style={{ background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:14 }}>‹</button>
+            <span style={{ fontSize:13,fontWeight:600,minWidth:160,textAlign:"center" }}>
+              {weekDays[0] && new Date(weekDays[0].date+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"})} — {weekDays[6] && new Date(weekDays[6].date+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
+            </span>
+            <button onClick={nextWeek} style={{ background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:14 }}>›</button>
+            <button onClick={()=>setDate(new Date().toISOString().slice(0,10))} style={{ background:"none",border:"1px solid var(--border)",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,color:"var(--blue)" }}>Today</button>
+          </div>
+        ) : (
+          <>
+            <input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{ ...inputStyle,width:"auto",padding:"6px 10px" }} />
+            {!loading && <span style={{ fontSize:13,color:"var(--text3)" }}>{dispatchTechs.length} tech{dispatchTechs.length!==1?"s":""} · {unassigned.length} unassigned</span>}
+          </>
+        )}
+        <div style={{ marginLeft:"auto",display:"flex",gap:4 }}>
+          {["list","calendar"].map(v=>(
+            <button key={v} onClick={()=>setView(v)} style={{ padding:"6px 14px",borderRadius:7,border:"1px solid var(--border)",background:view===v?"var(--blue)":"var(--surface2)",color:view===v?"#fff":"var(--text3)",fontSize:12,fontWeight:view===v?600:400,cursor:"pointer" }}>
+              {v==="list"?"📋 List":"📅 Calendar"}
+            </button>
+          ))}
+        </div>
       </div>
-      <div style={{ flex:1,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10 }}>
-        {dispatchTechs.length===0&&unassigned.length===0&&<EmptyState icon="📡" title="No jobs scheduled" desc={`No jobs found for ${fmtDate(date)}`} />}
-        {unassigned.length>0&&(<Card style={{ border:"1px solid var(--red-bd)",overflow:"hidden" }}><div style={{ padding:"10px 16px",background:"var(--red-lt)",borderBottom:"1px solid var(--red-bd)",fontSize:13,fontWeight:600,color:"var(--red)" }}>● Unassigned ({unassigned.length})</div><div style={{ display:"flex",flexDirection:"column",gap:8,padding:10 }}>{unassigned.map(job=><div key={job.id} style={{ background:"var(--surface2)",border:"1px solid var(--border)",borderLeft:"3px solid var(--red)",borderRadius:8,padding:"10px 12px" }}><div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap" }}><div><div style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:3 }}>{job.job_number}</div><div style={{ fontSize:13,fontWeight:600,marginBottom:3 }}>{job.title}</div><div style={{ fontSize:11,color:"var(--text3)" }}>{job.customer_name}</div></div><div style={{ display:"flex",alignItems:"center",gap:8,flexShrink:0 }}><select defaultValue="" disabled={assigning[job.id]} onChange={e=>assignTech(job.id,e.target.value)} style={{ ...inputStyle,width:"auto",padding:"5px 10px",fontSize:12,cursor:"pointer" }}><option value="" disabled>Assign to…</option>{techs.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>{assigning[job.id]&&<span style={{ fontSize:11,color:"var(--text3)" }}>Saving…</span>}</div></div></div>)}</div></Card>)}
-        {dispatchTechs.map(tech=><Card key={tech.id} style={{ overflow:"hidden" }}><div style={{ padding:"10px 16px",background:"var(--surface2)",borderBottom:tech.jobs?.length?"1px solid var(--border)":"none",display:"flex",alignItems:"center",gap:10 }}><div style={{ width:32,height:32,borderRadius:"50%",background:"var(--blue-lt)",border:"1px solid var(--blue-bd)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"var(--blue)",flexShrink:0 }}>{tech.name?.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div><span style={{ fontSize:13,fontWeight:600 }}>{tech.name}</span><span style={{ fontSize:11,color:"var(--text3)",marginLeft:4 }}>{tech.jobs?.length||0} job{tech.jobs?.length!==1?"s":""}</span></div>{tech.jobs?.length>0?<div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:8,padding:10 }}>{tech.jobs.map(job=>{const sc=STATUS_CFG[job.status]||STATUS_CFG.scheduled;return<div key={job.id} style={{ background:"var(--surface2)",border:`1px solid ${sc.bd}`,borderLeft:`3px solid ${sc.color}`,borderRadius:8,padding:"10px 12px" }}><div style={{ display:"flex",justifyContent:"space-between",marginBottom:5 }}><span style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)" }}>{job.job_number}</span><Chip status={job.status} /></div><div style={{ fontSize:13,fontWeight:600,marginBottom:3 }}>{job.title}</div><div style={{ fontSize:11,color:"var(--text3)" }}>{job.customer_name}</div></div>;})}</div>:<div style={{ padding:"12px 18px",fontSize:12,color:"var(--text4)",fontStyle:"italic" }}>No jobs scheduled</div>}</Card>)}
-      </div>
+
+      {/* CALENDAR VIEW */}
+      {view==="calendar" && (
+        <div style={{ flex:1,overflowY:"auto",padding:16 }}>
+          {weekLoading ? <Spinner /> : (
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8,minWidth:700 }}>
+              {/* Day headers */}
+              {weekDays.map(day=>(
+                <div key={day.date} onClick={()=>{setDate(day.date);setView("list");}}
+                  style={{ padding:"8px 10px",borderRadius:8,background:day.isToday?"var(--blue)":"var(--surface)",border:`1px solid ${day.isToday?"var(--blue)":"var(--border)"}`,cursor:"pointer",textAlign:"center",marginBottom:4 }}>
+                  <div style={{ fontSize:11,fontWeight:600,color:day.isToday?"#fff":"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em" }}>{day.label}</div>
+                  <div style={{ fontSize:20,fontWeight:700,color:day.isToday?"#fff":"var(--text1)",fontFamily:"var(--display)" }}>{day.day}</div>
+                </div>
+              ))}
+              {/* Job cards per day */}
+              {weekDays.map(day=>{
+                const dayJobs = weekJobs.filter(j=>j._date===day.date);
+                return (
+                  <div key={day.date} style={{ display:"flex",flexDirection:"column",gap:6,minHeight:120 }}>
+                    {dayJobs.length===0 ? (
+                      <div style={{ fontSize:11,color:"var(--text4)",textAlign:"center",padding:"12px 0",fontStyle:"italic" }}>—</div>
+                    ) : dayJobs.map(job=>{
+                      const color = STATUS_COLORS[job.status]||"#6B7280";
+                      return (
+                        <div key={job.id+day.date} style={{ background:"var(--surface)",border:`1px solid var(--border)`,borderLeft:`3px solid ${color}`,borderRadius:6,padding:"7px 9px",fontSize:11 }}>
+                          <div style={{ fontWeight:700,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{job.title}</div>
+                          <div style={{ color:"var(--text3)",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{job.customer_name}</div>
+                          {job._tech ? <div style={{ color:color,fontWeight:600 }}>👷 {job._tech}</div> : <div style={{ color:"var(--red)",fontWeight:600 }}>⚠ Unassigned</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* LIST VIEW */}
+      {view==="list" && (
+        <div style={{ flex:1,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10 }}>
+          {loading ? <Spinner /> : (
+            <>
+              {dispatchTechs.length===0&&unassigned.length===0&&<EmptyState icon="📡" title="No jobs scheduled" desc={`No jobs found for ${fmtDate(date)}`} />}
+              {unassigned.length>0&&(
+                <Card style={{ border:"1px solid var(--red-bd)",overflow:"hidden" }}>
+                  <div style={{ padding:"10px 16px",background:"var(--red-lt)",borderBottom:"1px solid var(--red-bd)",fontSize:13,fontWeight:600,color:"var(--red)" }}>● Unassigned ({unassigned.length})</div>
+                  <div style={{ display:"flex",flexDirection:"column",gap:8,padding:10 }}>
+                    {unassigned.map(job=>(
+                      <div key={job.id} style={{ background:"var(--surface2)",border:"1px solid var(--border)",borderLeft:"3px solid var(--red)",borderRadius:8,padding:"10px 12px" }}>
+                        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap" }}>
+                          <div><div style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:3 }}>{job.job_number}</div><div style={{ fontSize:13,fontWeight:600,marginBottom:3 }}>{job.title}</div><div style={{ fontSize:11,color:"var(--text3)" }}>{job.customer_name}</div></div>
+                          <div style={{ display:"flex",alignItems:"center",gap:8,flexShrink:0 }}>
+                            <select defaultValue="" disabled={assigning[job.id]} onChange={e=>assignTech(job.id,e.target.value)} style={{ ...inputStyle,width:"auto",padding:"5px 10px",fontSize:12,cursor:"pointer" }}>
+                              <option value="" disabled>Assign to…</option>
+                              {techs.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
+                            {assigning[job.id]&&<span style={{ fontSize:11,color:"var(--text3)" }}>Saving…</span>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+              {dispatchTechs.map(tech=>(
+                <Card key={tech.id} style={{ overflow:"hidden" }}>
+                  <div style={{ padding:"10px 16px",background:"var(--surface2)",borderBottom:tech.jobs?.length?"1px solid var(--border)":"none",display:"flex",alignItems:"center",gap:10 }}>
+                    <div style={{ width:32,height:32,borderRadius:"50%",background:"var(--blue-lt)",border:"1px solid var(--blue-bd)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"var(--blue)",flexShrink:0 }}>{tech.name?.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div>
+                    <span style={{ fontSize:13,fontWeight:600 }}>{tech.name}</span>
+                    <span style={{ fontSize:11,color:"var(--text3)",marginLeft:4 }}>{tech.jobs?.length||0} job{tech.jobs?.length!==1?"s":""}</span>
+                  </div>
+                  {tech.jobs?.length>0 ? (
+                    <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:8,padding:10 }}>
+                      {tech.jobs.map(job=>{
+                        const sc=STATUS_CFG[job.status]||STATUS_CFG.scheduled;
+                        return <div key={job.id} style={{ background:"var(--surface2)",border:`1px solid ${sc.bd}`,borderLeft:`3px solid ${sc.color}`,borderRadius:8,padding:"10px 12px" }}><div style={{ display:"flex",justifyContent:"space-between",marginBottom:5 }}><span style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)" }}>{job.job_number}</span><Chip status={job.status} /></div><div style={{ fontSize:13,fontWeight:600,marginBottom:3 }}>{job.title}</div><div style={{ fontSize:11,color:"var(--text3)" }}>{job.customer_name}</div></div>;
+                      })}
+                    </div>
+                  ) : <div style={{ padding:"12px 18px",fontSize:12,color:"var(--text4)",fontStyle:"italic" }}>No jobs scheduled</div>}
+                </Card>
+              ))}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
