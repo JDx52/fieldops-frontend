@@ -869,23 +869,23 @@ function printWorkOrder(wo) {
   <title>Work Order ${wo.wo || ""}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; font-size: 11px; color: #111; background: #fff; }
-    .page { max-width: 900px; margin: 0 auto; padding: 16px; border: 2px solid #1a3a6b; }
-    .header { display: flex; align-items: center; border-bottom: 2px solid #1a3a6b; padding-bottom: 10px; margin-bottom: 10px; }
-    .header img { height: 70px; width: auto; margin-right: 16px; }
+    body { font-family: Arial, sans-serif; font-size: 10px; color: #111; background: #fff; }
+    .page { max-width: 900px; margin: 0 auto; padding: 8px; border: 2px solid #1a3a6b; }
+    .header { display: flex; align-items: center; border-bottom: 2px solid #1a3a6b; padding-bottom: 6px; margin-bottom: 6px; }
+    .header img { height: 55px; width: auto; margin-right: 12px; }
     .header-info { flex: 1; text-align: center; }
     .header-info h1 { font-size: 18px; color: #1a3a6b; font-weight: 900; }
     .header-info p { font-size: 11px; color: #444; }
     .wo-num { text-align: right; }
     .wo-num .label { font-size: 9px; color: #666; }
     .wo-num .num { font-size: 20px; font-weight: 900; color: #1a3a6b; border: 2px solid #1a3a6b; padding: 3px 8px; }
-    .section { margin-top: 10px; }
+    .section { margin-top: 6px; }
     .section-title { background: #1a3a6b; color: #fff; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 8px; margin-bottom: 6px; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
     .field { border-bottom: 1px solid #1a3a6b; padding-bottom: 2px; margin-bottom: 6px; }
     .field .label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #555; }
     .field .value { font-size: 12px; min-height: 16px; }
-    .checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; border: 1px solid #ccc; padding: 8px; margin-bottom: 10px; }
+    .checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; border: 1px solid #ccc; padding: 5px; margin-bottom: 6px; }
     .checkbox-item { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 600; }
     .checkbox-item .box { width: 12px; height: 12px; border: 1px solid #333; display: flex; align-items: center; justify-content: center; font-size: 9px; flex-shrink: 0; }
     .checkbox-item .box.checked { background: #1a3a6b; color: #fff; }
@@ -897,11 +897,16 @@ function printWorkOrder(wo) {
     .total-inner .label { font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.08em; }
     .total-inner .amount { font-size: 24px; font-weight: 900; color: #1a3a6b; }
     .sig-img { max-width: 100%; height: 60px; object-fit: contain; border: 1px solid #ccc; }
-    .checklist-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
-    .bottom-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 10px; }
-    .bottom-card { border: 1px solid #ccc; padding: 8px; font-size: 9px; line-height: 1.5; }
+    .checklist-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; }
+    .bottom-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 6px; }
+    .bottom-card { border: 1px solid #ccc; padding: 6px; font-size: 8.5px; line-height: 1.4; }
     .bottom-card .title { font-weight: 700; font-size: 10px; margin-bottom: 4px; }
-    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      @page { margin: 0.4cm; size: A4 portrait; }
+    }
+    html, body { height: auto !important; }
+    .page { transform-origin: top left; }
   </style>
 </head>
 <body>
@@ -963,7 +968,7 @@ function printWorkOrder(wo) {
     </div>
   </div>
 
-  ${wo.descriptionOfWork ? `<div class="section"><div class="section-title">Description of Work</div><div style="padding:6px 8px;border:1px solid #ccc;min-height:60px;font-size:11px;line-height:1.6;white-space:pre-wrap">${wo.descriptionOfWork}</div></div>` : ""}
+  ${wo.descriptionOfWork ? `<div class="section"><div class="section-title">Description of Work</div><div style="padding:4px 6px;border:1px solid #ccc;min-height:40px;font-size:10px;line-height:1.5;white-space:pre-wrap">${wo.descriptionOfWork}</div></div>` : ""}
   ${wo.recommendations ? `<div class="section"><div class="section-title">Recommendations</div><div style="padding:6px 8px;border:1px solid #ccc;min-height:40px;font-size:11px;line-height:1.6;white-space:pre-wrap">${wo.recommendations}</div></div>` : ""}
 
   ${materials.length > 0 ? `
