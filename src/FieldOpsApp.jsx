@@ -30,14 +30,113 @@ const GLOBAL_CSS = `
   .s1{animation-delay:.05s}.s2{animation-delay:.10s}.s3{animation-delay:.15s}
 `;
 
-// ── WORK ORDER STORAGE ──
-const WO_KEY = "fieldops_workorders";
+// ── WORK ORDER API ──
+const WO_KEY = "fieldops_workorders_cache"; // keep cache as fallback
 function loadWorkOrders() { try { return JSON.parse(localStorage.getItem(WO_KEY)||"[]"); } catch { return []; } }
-function saveWorkOrder(wo) {
-  const list = loadWorkOrders();
-  const idx = list.findIndex(w => w.id === wo.id);
-  if (idx >= 0) list[idx] = wo; else list.unshift(wo);
-  localStorage.setItem(WO_KEY, JSON.stringify(list));
+function cacheWorkOrders(list) { try { localStorage.setItem(WO_KEY, JSON.stringify(list)); } catch {} }
+
+async function fetchWorkOrders(params = "") {
+  try {
+    const data = await apiFetch(`/work-orders?limit=200${params}`);
+    const list = Array.isArray(data) ? data.map(normalizeWO) : [];
+    cacheWorkOrders(list);
+    return list;
+  } catch { return loadWorkOrders(); }
+}
+
+async function saveWorkOrder(wo) {
+  try {
+    const payload = {
+      wo_number: wo.wo || wo.wo_number || String(Date.now()),
+      job_id: wo.jobId || null,
+      customer_id: wo.customerId || null,
+      date: wo.date || null,
+      customer: wo.customer || null,
+      billing_address: wo.billingAddress || null,
+      phone: wo.phone || null,
+      cell: wo.cell || null,
+      email: wo.email || null,
+      complaint: wo.complaint || null,
+      worked_by: wo.workedBy || null,
+      unit_address: wo.unitAddress || null,
+      unit_phone: wo.unitPhone || null,
+      unit_cell: wo.unitCell || null,
+      job_types: wo.jobTypes || [],
+      equipment: wo.equipment || [],
+      technician: wo.technician || null,
+      time_in: wo.timeIn || null,
+      time_out: wo.timeOut || null,
+      travel_time: wo.travelTime || null,
+      reg_hrs: wo.regHrs || null,
+      ot_hrs: wo.otHrs || null,
+      rate: wo.rate || null,
+      amount: wo.amount || null,
+      checklist: wo.checklist || [],
+      description_of_work: wo.descriptionOfWork || null,
+      recommendations: wo.recommendations || null,
+      materials: wo.materials || [],
+      service_type: wo.serviceType || [],
+      total_amount: wo.totalAmount || null,
+      print_name: wo.printName || null,
+      signature: wo.signature || null,
+      sign_date: wo.signDate || null,
+    };
+    const saved = await apiFetch("/work-orders", { method: "POST", body: JSON.stringify(payload) });
+    return normalizeWO(saved);
+  } catch(e) {
+    console.error("WO save failed, using cache:", e);
+    // fallback: save to localStorage
+    const list = loadWorkOrders();
+    const idx = list.findIndex(w => w.wo === wo.wo);
+    if (idx >= 0) list[idx] = wo; else list.unshift(wo);
+    cacheWorkOrders(list);
+    return wo;
+  }
+}
+
+async function deleteWorkOrder(id) {
+  try { await apiFetch(`/work-orders/${id}`, { method: "DELETE" }); } catch(e) { console.error(e); }
+}
+
+function normalizeWO(w) {
+  // Map snake_case API fields back to camelCase used in the frontend
+  return {
+    id: w.id,
+    wo: w.wo_number || w.wo,
+    date: w.date,
+    customer: w.customer,
+    customerId: w.customer_id || w.customerId,
+    jobId: w.job_id || w.jobId,
+    billingAddress: w.billing_address || w.billingAddress,
+    phone: w.phone,
+    cell: w.cell,
+    email: w.email,
+    complaint: w.complaint,
+    workedBy: w.worked_by || w.workedBy,
+    unitAddress: w.unit_address || w.unitAddress,
+    unitPhone: w.unit_phone || w.unitPhone,
+    unitCell: w.unit_cell || w.unitCell,
+    jobTypes: w.job_types || w.jobTypes || [],
+    equipment: w.equipment || [],
+    technician: w.technician,
+    timeIn: w.time_in || w.timeIn,
+    timeOut: w.time_out || w.timeOut,
+    travelTime: w.travel_time || w.travelTime,
+    regHrs: w.reg_hrs || w.regHrs,
+    otHrs: w.ot_hrs || w.otHrs,
+    rate: w.rate,
+    amount: w.amount,
+    checklist: w.checklist || [],
+    descriptionOfWork: w.description_of_work || w.descriptionOfWork,
+    recommendations: w.recommendations,
+    materials: w.materials || [],
+    serviceType: w.service_type || w.serviceType || [],
+    totalAmount: w.total_amount || w.totalAmount,
+    printName: w.print_name || w.printName,
+    signature: w.signature,
+    signDate: w.sign_date || w.signDate,
+    savedAt: w.created_at || w.savedAt,
+  };
 }
 
 // ── CURRENT JOB CONTEXT (for autofill) ──
@@ -279,14 +378,12 @@ function CustomerDetail({ customer, onBack, onDelete }) {
 
   useEffect(() => {
     apiFetch(`/customers/${customer.id}/jobs`).then(d=>setJobs(Array.isArray(d)?d:[])).catch(()=>setJobs([])).finally(()=>setLoadingJobs(false));
-    const allWOs = loadWorkOrders();
-    setWorkOrders(allWOs.filter(w => w.customerId === customer.id || w.customer === `${customer.first_name} ${customer.last_name}`));
-    const refreshWOs = () => {
-      const fresh = loadWorkOrders();
-      setWorkOrders(fresh.filter(w => w.customerId === customer.id || w.customer === `${customer.first_name} ${customer.last_name}`));
-    };
-    window.addEventListener("focus", refreshWOs);
-    return () => window.removeEventListener("focus", refreshWOs);
+    const name = `${customer.first_name} ${customer.last_name}`;
+    fetchWorkOrders(`&customer_id=${customer.id}`).then(all => {
+      // also match by name in case customer_id wasn't saved
+      const matched = all.filter(w => w.customerId === customer.id || w.customer === name);
+      setWorkOrders(matched);
+    });
   }, [customer.id]);
 
   async function saveNotes() {
@@ -763,17 +860,13 @@ function InvoicesScreen() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    setList(loadWorkOrders());
-    const handler = () => setList(loadWorkOrders());
-    window.addEventListener("focus", handler);
-    return () => window.removeEventListener("focus", handler);
+    fetchWorkOrders().then(setList);
   }, []);
 
-  function deleteWO(id) {
+  async function deleteWO(id) {
     if (!window.confirm("Delete this work order?")) return;
-    const updated = list.filter(w => w.id !== id);
-    localStorage.setItem(WO_KEY, JSON.stringify(updated));
-    setList(updated);
+    await deleteWorkOrder(id);
+    setList(p => p.filter(w => w.id !== id));
     setSelected(null);
   }
 
@@ -995,7 +1088,7 @@ function AppShell() {
     "/invoices": <InvoicesScreen />,
     "/jobs": <JobsScreen />,
     "/team": <TeamScreen />,
-    "/workorder": <WorkOrder405 prefill={currentJob} onSave={wo=>{ saveWorkOrder({...wo,id:wo.wo||Date.now(),customerId:currentJob?.customerId}); setCurrentJob(null); }} />,
+    "/workorder": <WorkOrder405 prefill={currentJob} onSave={async wo=>{ await saveWorkOrder({...wo,customerId:currentJob?.customerId}); setCurrentJob(null); }} />,
     "/pricebook": <Pricebook />,
   };
 
