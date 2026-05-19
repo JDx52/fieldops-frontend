@@ -164,11 +164,25 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
   const savedData = readOnly || null;
 
   function generateWO() {
-    const now = new Date();
-    const yy = String(now.getFullYear()).slice(2);
-    const mm = String(now.getMonth()+1).padStart(2,"0");
-    const seq = String(now.getTime()).slice(-4);
-    return `WO-${yy}${mm}${seq}`;
+    // Sequential: fetch count from API, fallback to timestamp
+    const API = process.env.REACT_APP_API_URL || "https://fieldops-api-production-b341.up.railway.app/v1";
+    const token = localStorage.getItem("fieldops_token");
+    return fetch(`${API}/work-orders?limit=1`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => {
+        const list = Array.isArray(d.data) ? d.data : [];
+        // Find highest WO number
+        let max = 0;
+        list.forEach(w => {
+          const n = parseInt((w.wo_number || "").replace(/\D/g, ""));
+          if (!isNaN(n) && n > max) max = n;
+        });
+        return `WO-${String(max + 1).padStart(4, "0")}`;
+      })
+      .catch(() => {
+        const seq = String(Date.now()).slice(-4);
+        return `WO-${seq}`;
+      });
   }
 
   const [users, setUsers] = useState([]);
@@ -182,7 +196,7 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
     fetch(`${API}/customers?limit=100`, { headers: hdrs }).then(r=>r.json()).then(d=>setCustomers(Array.isArray(d.data)?d.data:[])).catch(()=>{});
   }, []);
   const [form, setForm] = useState({
-    wo: savedData?.wo || generateWO(), date: savedData?.date || new Date().toISOString().slice(0,10),
+    wo: savedData?.wo || "", date: savedData?.date || new Date().toISOString().slice(0,10),
     customer: savedData?.customer || prefill?.customer||"", billingAddress: savedData?.billingAddress || prefill?.billingAddress||"",
     phone: savedData?.phone || prefill?.phone||"", cell: savedData?.cell || prefill?.cell||"", email: savedData?.email || prefill?.email||"",
     complaint: savedData?.complaint || prefill?.complaint||"", workedBy: savedData?.workedBy || prefill?.workedBy||"",
@@ -203,6 +217,13 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
   });
 
   const isReadOnly = !!readOnly;
+
+  // Generate sequential WO number on mount
+  useEffect(() => {
+    if (!isReadOnly && !savedData?.wo) {
+      generateWO().then(wo => setForm(p => ({ ...p, wo })));
+    }
+  }, []);
 
   useEffect(() => {
     if (prefill && !readOnly) {
@@ -250,7 +271,8 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
   }
 
   function resetForm() {
-    setForm({ wo: generateWO(), date: new Date().toISOString().slice(0,10), customer: "", billingAddress: "", phone: "", cell: "", email: "", complaint: "", workedBy: "", unitAddress: "", unitPhone: "", unitCell: "", jobTypes: [], equipment: [{ make: "", model: "", serial: "", location: "", area: "" }], technician: "", timeIn: "", timeOut: "", travelTime: "", regHrs: "", otHrs: "", rate: "", amount: "", checklist: [], descriptionOfWork: "", recommendations: "", materials: Array(8).fill(null).map(() => ({ qty: "", description: "", unitPrice: "", amount: "" })), serviceType: [], totalAmount: "", printName: "", signature: "", signDate: "" });
+    generateWO().then(wo => setForm(p => ({ ...p, wo })));
+    setForm({ wo: "", date: new Date().toISOString().slice(0,10), customer: "", billingAddress: "", phone: "", cell: "", email: "", complaint: "", workedBy: "", unitAddress: "", unitPhone: "", unitCell: "", jobTypes: [], equipment: [{ make: "", model: "", serial: "", location: "", area: "" }], technician: "", timeIn: "", timeOut: "", travelTime: "", regHrs: "", otHrs: "", rate: "", amount: "", checklist: [], descriptionOfWork: "", recommendations: "", materials: Array(8).fill(null).map(() => ({ qty: "", description: "", unitPrice: "", amount: "" })), serviceType: [], totalAmount: "", printName: "", signature: "", signDate: "" });
     setSubmitted(false);
   }
 
@@ -554,6 +576,16 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
             <button onClick={async () => {
               const wo = {...form, savedAt: new Date().toISOString()};
               if(onSave) await onSave(wo);
+              // Auto-complete linked job
+              if (wo.jobId) {
+                const API = process.env.REACT_APP_API_URL || "https://fieldops-api-production-b341.up.railway.app/v1";
+                const token = localStorage.getItem("fieldops_token");
+                fetch(`${API}/jobs/${wo.jobId}/status`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                  body: JSON.stringify({ status: "completed" })
+                }).catch(() => {});
+              }
               setSubmitted(true);
             }}
               style={{ background: "#1a3a6b", color: "#fff", border: "none", borderRadius: 10, padding: "14px 48px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
