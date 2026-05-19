@@ -295,14 +295,48 @@ function CustomerDetail({ customer, onBack, onDelete }) {
     <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--bg)",position:"relative" }}>
       {detailJob && <JobDetailModal job={detailJob} onClose={()=>setDetailJob(null)} />}
       {viewWO && (
-        <div style={{ position:"absolute",inset:0,background:"#fff",zIndex:50,display:"flex",flexDirection:"column",overflow:"hidden" }}>
+        <div style={{ position:"absolute",inset:0,background:"var(--bg)",zIndex:50,display:"flex",flexDirection:"column",overflow:"hidden" }}>
           <div style={{ background:"var(--surface)",borderBottom:"1px solid var(--border)",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0 }}>
             <button onClick={()=>setViewWO(null)} style={{ background:"none",border:"none",color:"var(--blue)",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:0 }}>← Back</button>
-            <div style={{ fontSize:14,fontWeight:700 }}>Work Order — {viewWO.customer||"Customer"}</div>
+            <div style={{ fontSize:14,fontWeight:700,fontFamily:"var(--display)" }}>Work Order — {viewWO.customer||"Customer"}</div>
             <div style={{ width:60 }} />
           </div>
-          <div style={{ flex:1,overflowY:"auto" }}>
-            <WorkOrder405 prefill={null} readOnly={viewWO} onSave={null} />
+          <div style={{ flex:1,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:12 }}>
+            {/* Header info */}
+            <Card style={{ padding:"14px 16px" }}>
+              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
+                {[["WO#",viewWO.wo],["Date",viewWO.date],["Customer",viewWO.customer],["Phone",viewWO.phone],["Address",viewWO.billingAddress],["Email",viewWO.email],["Complaint",viewWO.complaint],["Technician",viewWO.technician],["Time In",viewWO.timeIn],["Time Out",viewWO.timeOut]].filter(([,v])=>v).map(([l,v])=>(
+                  <div key={l}><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2 }}>{l}</div><div style={{ fontSize:13 }}>{v}</div></div>
+                ))}
+              </div>
+            </Card>
+            {/* Job types */}
+            {viewWO.jobTypes?.length>0 && <Card style={{ padding:"14px 16px" }}><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8 }}>Job Type</div><div style={{ display:"flex",flexWrap:"wrap",gap:6 }}>{viewWO.jobTypes.map(t=><span key={t} style={{ background:"var(--blue-lt)",color:"var(--blue)",border:"1px solid var(--blue-bd)",fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:100 }}>{t}</span>)}</div></Card>}
+            {/* Checklist */}
+            {viewWO.checklist?.length>0 && <Card style={{ padding:"14px 16px" }}><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8 }}>Service Checklist</div><div style={{ display:"flex",flexWrap:"wrap",gap:6 }}>{viewWO.checklist.map(item=><span key={item} style={{ background:"var(--green-lt)",color:"var(--green)",border:"1px solid var(--green-bd)",fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:100 }}>✓ {item}</span>)}</div></Card>}
+            {/* Description */}
+            {viewWO.descriptionOfWork && <Card style={{ padding:"14px 16px" }}><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8 }}>Description of Work</div><div style={{ fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap" }}>{viewWO.descriptionOfWork}</div></Card>}
+            {/* Recommendations */}
+            {viewWO.recommendations && <Card style={{ padding:"14px 16px" }}><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8 }}>Recommendations</div><div style={{ fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap" }}>{viewWO.recommendations}</div></Card>}
+            {/* Materials */}
+            {viewWO.materials?.some(m=>m.description) && (
+              <Card style={{ padding:"14px 16px" }}>
+                <div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10 }}>Materials</div>
+                <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+                  <thead><tr style={{ background:"var(--surface2)" }}>{["Qty","Description","Unit Price","Amount"].map(h=><th key={h} style={{ padding:"6px 10px",textAlign:"left",fontSize:11,fontWeight:600,color:"var(--text3)",borderBottom:"1px solid var(--border)" }}>{h}</th>)}</tr></thead>
+                  <tbody>{viewWO.materials.filter(m=>m.description).map((m,i)=><tr key={i} style={{ borderBottom:"1px solid var(--border)" }}><td style={{ padding:"8px 10px" }}>{m.qty||"1"}</td><td style={{ padding:"8px 10px" }}>{m.description}</td><td style={{ padding:"8px 10px" }}>{m.unitPrice?`$${m.unitPrice}`:""}</td><td style={{ padding:"8px 10px",fontWeight:600,color:"var(--green)" }}>{m.amount?`$${m.amount}`:""}</td></tr>)}</tbody>
+                </table>
+              </Card>
+            )}
+            {/* Total */}
+            <div style={{ display:"flex",justifyContent:"flex-end" }}>
+              <div style={{ background:"var(--blue-lt)",border:"1px solid var(--blue-bd)",borderRadius:10,padding:"14px 24px",textAlign:"right" }}>
+                <div style={{ fontSize:11,color:"var(--text3)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.08em" }}>Total Due</div>
+                <div style={{ fontSize:28,fontFamily:"var(--mono)",fontWeight:700,color:"var(--blue)" }}>{viewWO.totalAmount?`$${viewWO.totalAmount}`:"—"}</div>
+              </div>
+            </div>
+            {/* Signature */}
+            {viewWO.signature && <Card style={{ padding:"14px 16px" }}><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8 }}>Signature</div><img src={viewWO.signature} alt="Signature" style={{ maxWidth:"100%",height:80,objectFit:"contain",border:"1px solid var(--border)",borderRadius:6,background:"#fff" }} />{viewWO.printName&&<div style={{ fontSize:13,marginTop:6 }}>{viewWO.printName} · {viewWO.signDate||""}</div>}</Card>}
           </div>
         </div>
       )}
