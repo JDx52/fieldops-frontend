@@ -463,6 +463,7 @@ function NewCustomerModal({ onClose, onSave }) {
 //  JOBS
 // ════════════════════════════════════════════════════════════════
 function JobsScreen() {
+  const { navigate } = useRouter();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
