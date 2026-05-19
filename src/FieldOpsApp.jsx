@@ -86,7 +86,10 @@ const useAuth = () => useContext(AuthContext);
 // ── ROUTER ──
 const RouterContext = createContext(null);
 function RouterProvider({ children }) {
-  const [route, setRoute] = useState(() => window.location.hash.slice(1) || "/");
+  const [route, setRoute] = useState(() => {
+    if (!window.location.hash) { window.location.hash = "/"; return "/"; }
+    return window.location.hash.slice(1) || "/";
+  });
   const navigate = useCallback(path => { window.location.hash = path; setRoute(path); }, []);
   useEffect(() => {
     const handler = () => setRoute(window.location.hash.slice(1) || "/");
