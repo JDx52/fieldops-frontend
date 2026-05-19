@@ -335,7 +335,15 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     async function load() {
-      try { const [s,j]=await Promise.all([apiFetch("/company/stats"),apiFetch("/jobs?limit=5")]); setStats(s); setJobs(Array.isArray(j)?j:[]); } catch(e) { console.error(e); }
+      try {
+        const [s,j,wo] = await Promise.all([
+          apiFetch("/company/stats"),
+          apiFetch("/jobs?limit=5"),
+          apiFetch("/work-orders?limit=1").catch(()=>({total:0}))
+        ]);
+        setStats({...s, work_orders_count: wo?.total || 0});
+        setJobs(Array.isArray(j)?j:[]);
+      } catch(e) { console.error(e); }
       setLoading(false);
     }
     load();
@@ -353,7 +361,7 @@ function Dashboard() {
         <div style={{ padding:"18px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16 }}><h3 style={{ fontSize:14,fontWeight:700,fontFamily:"var(--display)" }}>Recent Jobs</h3><Btn small variant="secondary" onClick={()=>navigate("/jobs")}>View all →</Btn></div>
         {jobs.length===0?<EmptyState icon="🔧" title="No jobs yet" desc="Create your first job to get started" action={<Btn onClick={()=>navigate("/jobs")}>+ New Job</Btn>} />:(
           <table style={{ width:"100%",borderCollapse:"collapse" }}>
-            <thead><tr style={{ background:"var(--surface2)" }}>{["Job #","Title","Customer","Status"].map(h=><th key={h} style={{ padding:"8px 16px",textAlign:"left",fontSize:11,fontWeight:600,color:"var(--text3)",fontFamily:"var(--display)",letterSpacing:"0.06em",textTransform:"uppercase",borderTop:"1px solid var(--border)",borderBottom:"1px solid var(--border)" }}>{h}</th>)}</tr></thead>
+            <thead><tr style={{ background:"var(--surface2)" }}>{["Job #","Title","Customer","Status","Date"].map(h=><th key={h} style={{ padding:"8px 16px",textAlign:"left",fontSize:11,fontWeight:600,color:"var(--text3)",fontFamily:"var(--display)",letterSpacing:"0.06em",textTransform:"uppercase",borderTop:"1px solid var(--border)",borderBottom:"1px solid var(--border)" }}>{h}</th>)}</tr></thead>
             <tbody>{jobs.map(job=><tr key={job.id} style={{ borderBottom:"1px solid var(--border)",cursor:"pointer",transition:"background .1s" }} onMouseEnter={e=>e.currentTarget.style.background="var(--surface2)"} onMouseLeave={e=>e.currentTarget.style.background=""} onClick={()=>navigate("/jobs")}><td style={{ padding:"12px 16px",fontSize:12,fontFamily:"var(--mono)",color:"var(--text3)" }}>{job.job_number}</td><td style={{ padding:"12px 16px",fontSize:13,fontWeight:500 }}>{job.title}</td><td style={{ padding:"12px 16px",fontSize:13,color:"var(--text2)" }}>{job.customer_name}</td><td style={{ padding:"12px 16px" }}><Chip status={job.status} /></td></tr>)}</tbody>
           </table>
         )}
