@@ -467,7 +467,6 @@ function JobsScreen() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
   const [showNew, setShowNew] = useState(false);
-  const [estimateJob, setEstimateJob] = useState(null);
   const [detailJob, setDetailJob] = useState(null);
   async function load() {
     setLoading(true);
@@ -481,7 +480,6 @@ function JobsScreen() {
   return (
     <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
       {showNew && <NewJobModal onClose={()=>setShowNew(false)} onSave={async(job)=>{setJobs(p=>[job,...p]);setShowNew(false);}} />}
-      {estimateJob && <NewEstimateModal job={estimateJob} onClose={()=>setEstimateJob(null)} onSave={()=>setEstimateJob(null)} />}
       {detailJob && <JobDetailModal job={detailJob} onClose={()=>setDetailJob(null)} />}
       <div style={{ padding:"12px 20px",background:"var(--surface)",borderBottom:"1px solid var(--border)",display:"flex",gap:8,alignItems:"center" }}>
         <div style={{ display:"flex",gap:4 }}>{["all","scheduled","in_progress","en_route","completed"].map(s=>(<button key={s} onClick={()=>setFilterStatus(s)} style={{ fontSize:11,padding:"4px 10px",borderRadius:100,background:filterStatus===s?"var(--blue)":"var(--surface2)",color:filterStatus===s?"#fff":"var(--text3)",border:filterStatus===s?"none":"1px solid var(--border)",cursor:"pointer",textTransform:"capitalize",fontWeight:filterStatus===s?600:400 }}>{s==="all"?"All":STATUS_CFG[s]?.label||s}</button>))}</div>
@@ -505,7 +503,7 @@ function JobsScreen() {
                   {job.status==="scheduled" && <Btn small variant="secondary" onClick={()=>handleStatusChange(job.id,"en_route")}>→ En Route</Btn>}
                   {job.status==="en_route" && <Btn small variant="secondary" onClick={()=>handleStatusChange(job.id,"in_progress")}>→ Start Job</Btn>}
                   {job.status==="in_progress" && <Btn small onClick={()=>handleStatusChange(job.id,"completed")}>✓ Complete</Btn>}
-                  <Btn small variant="secondary" onClick={()=>setEstimateJob(job)}>📋 Create Estimate</Btn>
+                  <Btn small variant="secondary" onClick={()=>navigate("/workorder")}>📋 Work Order</Btn>
                 </div>
               </Card>
             ))}
