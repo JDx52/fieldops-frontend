@@ -114,7 +114,15 @@ export default function WorkOrder405() {
     const eq = [...form.equipment]; eq[i] = { ...eq[i], [key]: val }; set("equipment", eq);
   }
   function updateMaterial(i, key, val) {
-    const mats = [...form.materials]; mats[i] = { ...mats[i], [key]: val }; set("materials", mats);
+    const mats = [...form.materials];
+    mats[i] = { ...mats[i], [key]: val };
+    // auto-calc row amount
+    const qty = parseFloat(key === "qty" ? val : mats[i].qty) || 0;
+    const price = parseFloat(key === "unitPrice" ? val : mats[i].unitPrice) || 0;
+    mats[i].amount = (qty * price).toFixed(2);
+    // auto-calc total
+    const total = mats.reduce((sum, m) => sum + (parseFloat(m.amount) || 0), 0);
+    setForm(p => ({ ...p, materials: mats, totalAmount: total.toFixed(2) }));
   }
 
   function resetForm() {
@@ -307,9 +315,11 @@ export default function WorkOrder405() {
                 const mats = [...form.materials];
                 const emptyIdx = mats.findIndex(m => !m.description && !m.qty);
                 const idx = emptyIdx >= 0 ? emptyIdx : mats.length;
-                if (idx >= mats.length) mats.push({ qty: "1", description: item.name, unitPrice: String(item.price), amount: String(item.price) });
-                else mats[idx] = { qty: "1", description: item.name, unitPrice: String(item.price), amount: String(item.price) };
-                set("materials", mats);
+                const newRow = { qty: "1", description: item.name, unitPrice: String(item.price), amount: String(item.price) };
+                if (idx >= mats.length) mats.push(newRow);
+                else mats[idx] = newRow;
+                const total = mats.reduce((sum, m) => sum + (parseFloat(m.amount) || 0), 0);
+                setForm(p => ({ ...p, materials: mats, totalAmount: total.toFixed(2) }));
                 setShowPricebook(false);
               }}
             />
@@ -377,8 +387,8 @@ export default function WorkOrder405() {
                 <span style={{ fontSize: 15, fontWeight: 700, color: "#1a3a6b" }}>TOTAL DUE</span>
                 <div style={{ position: "relative" }}>
                   <span style={{ position: "absolute", left: 4, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: "#666" }}>$</span>
-                  <input value={form.totalAmount} onChange={e => set("totalAmount", e.target.value)}
-                    style={{ ...s.input, width: 100, paddingLeft: 16, textAlign: "right", fontWeight: 700, fontSize: 20, color: "#1a3a6b" }} />
+                  <input value={form.totalAmount} readOnly
+                    style={{ ...s.input, width: 100, paddingLeft: 16, textAlign: "right", fontWeight: 700, fontSize: 20, color: "#1a3a6b", background: "#f0f4f8" }} />
                 </div>
               </div>
             </div>
