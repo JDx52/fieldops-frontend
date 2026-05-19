@@ -134,7 +134,7 @@ export default function WorkOrder405() {
 
   if (submitted) {
     return (
-      <div style={{ minHeight: "100vh", background: "#f0f4f8", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ flex: 1, background: "#f0f4f8", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <div style={{ background: "#fff", borderRadius: 16, padding: 48, textAlign: "center", maxWidth: 480, boxShadow: "0 4px 32px #0002" }}>
           <img src={`data:image/png;base64,${LOGO_B64}`} alt="405 Heating & Air" style={{ width: 160, marginBottom: 16 }} />
           <h2 style={{ fontSize: 22, marginBottom: 12, color: "#1a3a6b" }}>Work Order Submitted</h2>
@@ -149,8 +149,8 @@ export default function WorkOrder405() {
   }
 
   return (
-    <div style={{ background: "#e8edf2", minHeight: "100vh", padding: "20px 0", fontFamily: "'Arial', sans-serif" }}>
-      <div style={{ maxWidth: 900, margin: "0 auto", background: "#fff", border: "2px solid #1a3a6b", boxShadow: "0 8px 40px #0003" }}>
+    <div style={{ flex: 1, overflowY: "auto", background: "#e8edf2", fontFamily: "'Arial', sans-serif" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", background: "#fff", border: "2px solid #1a3a6b", boxShadow: "0 8px 40px #0003", minHeight: "100%" }}>
 
         {/* HEADER */}
         <div style={{ display: "flex", alignItems: "center", padding: "10px 16px", borderBottom: "2px solid #1a3a6b", gap: 16, background: "#fff" }}>
