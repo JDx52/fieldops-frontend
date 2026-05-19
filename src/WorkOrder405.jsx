@@ -185,6 +185,22 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
 
   const isReadOnly = !!readOnly;
 
+  useEffect(() => {
+    if (prefill && !readOnly) {
+      setForm(p => ({
+        ...p,
+        customer: prefill.customer || "",
+        billingAddress: prefill.billingAddress || "",
+        phone: prefill.phone || "",
+        cell: prefill.cell || "",
+        email: prefill.email || "",
+        complaint: prefill.complaint || "",
+        workedBy: prefill.workedBy || "",
+        unitAddress: prefill.unitAddress || prefill.billingAddress || "",
+      }));
+    }
+  }, [prefill]);
+
   const [submitted, setSubmitted] = useState(false);
   const [showPricebook, setShowPricebook] = useState(false);
 
@@ -229,7 +245,7 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
     checkbox: { width: 14, height: 14, accentColor: "#1a3a6b", flexShrink: 0 },
   };
 
-  if (submitted) {
+  if (submitted && !isReadOnly) {
     return (
       <div style={{ flex: 1, background: "#f0f4f8", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <div style={{ background: "#fff", borderRadius: 16, padding: 48, textAlign: "center", maxWidth: 480, boxShadow: "0 4px 32px #0002" }}>
@@ -493,7 +509,7 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
           {/* SUBMIT */}
           {!isReadOnly && (
           <div style={{ display: "flex", justifyContent: "center", marginTop: 20, paddingBottom: 16 }}>
-            <button onClick={() => { const wo = {...form, id: Date.now(), savedAt: new Date().toISOString()}; if(onSave) onSave(wo); setSubmitted(true); }}
+            <button onClick={() => { const wo = {...form, id: form.wo || Date.now(), savedAt: new Date().toISOString()}; if(onSave) onSave(wo); setSubmitted(true); }}
               style={{ background: "#1a3a6b", color: "#fff", border: "none", borderRadius: 10, padding: "14px 48px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
               Submit Work Order
             </button>
