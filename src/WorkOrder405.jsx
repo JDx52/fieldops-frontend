@@ -160,25 +160,30 @@ function PricebookPicker({ onClose, onSelect }) {
   );
 }
 
-export default function WorkOrder405({ prefill, onSave }) {
+export default function WorkOrder405({ prefill, onSave, readOnly }) {
+  const savedData = readOnly || null;
   const [form, setForm] = useState({
-    wo: "", date: new Date().toISOString().slice(0,10),
-    customer: prefill?.customer||"", billingAddress: prefill?.billingAddress||"",
-    phone: prefill?.phone||"", cell: prefill?.cell||"", email: prefill?.email||"",
-    complaint: prefill?.complaint||"", workedBy: prefill?.workedBy||"",
-    unitAddress: prefill?.unitAddress||prefill?.billingAddress||"",
-    unitPhone: "", unitCell: "",
-    jobTypes: [],
-    equipment: [{ make: "", model: "", serial: "", location: "", area: "" }],
-    technician: "", timeIn: "", timeOut: "", travelTime: "", regHrs: "", otHrs: "", rate: "", amount: "",
-    checklist: [],
-    descriptionOfWork: "",
-    recommendations: "",
-    materials: Array(8).fill(null).map(() => ({ qty: "", description: "", unitPrice: "", amount: "" })),
-    serviceType: [],
-    totalLabor: "", totalMaterials: "", tax: "", totalAmount: "",
-    printName: "", signature: "", signDate: "",
+    wo: savedData?.wo || "", date: savedData?.date || new Date().toISOString().slice(0,10),
+    customer: savedData?.customer || prefill?.customer||"", billingAddress: savedData?.billingAddress || prefill?.billingAddress||"",
+    phone: savedData?.phone || prefill?.phone||"", cell: savedData?.cell || prefill?.cell||"", email: savedData?.email || prefill?.email||"",
+    complaint: savedData?.complaint || prefill?.complaint||"", workedBy: savedData?.workedBy || prefill?.workedBy||"",
+    unitAddress: savedData?.unitAddress || prefill?.unitAddress||prefill?.billingAddress||"",
+    unitPhone: savedData?.unitPhone || "", unitCell: savedData?.unitCell || "",
+    jobTypes: savedData?.jobTypes || [],
+    equipment: savedData?.equipment || [{ make: "", model: "", serial: "", location: "", area: "" }],
+    technician: savedData?.technician || "", timeIn: savedData?.timeIn || "", timeOut: savedData?.timeOut || "",
+    travelTime: savedData?.travelTime || "", regHrs: savedData?.regHrs || "", otHrs: savedData?.otHrs || "",
+    rate: savedData?.rate || "", amount: savedData?.amount || "",
+    checklist: savedData?.checklist || [],
+    descriptionOfWork: savedData?.descriptionOfWork || "",
+    recommendations: savedData?.recommendations || "",
+    materials: savedData?.materials || Array(8).fill(null).map(() => ({ qty: "", description: "", unitPrice: "", amount: "" })),
+    serviceType: savedData?.serviceType || [],
+    totalAmount: savedData?.totalAmount || "",
+    printName: savedData?.printName || "", signature: savedData?.signature || "", signDate: savedData?.signDate || "",
   });
+
+  const isReadOnly = !!readOnly;
 
   const [submitted, setSubmitted] = useState(false);
   const [showPricebook, setShowPricebook] = useState(false);
@@ -392,7 +397,7 @@ export default function WorkOrder405({ prefill, onSave }) {
           </div>
 
           {/* PRICEBOOK PICKER MODAL */}
-          {showPricebook && (
+          {showPricebook && !isReadOnly && (
             <PricebookPicker
               onClose={() => setShowPricebook(false)}
               onSelect={item => {
@@ -413,9 +418,9 @@ export default function WorkOrder405({ prefill, onSave }) {
           <div style={s.section}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>Materials</span>
-              <button onClick={() => setShowPricebook(true)} style={{ fontSize: 11, background: "#1a3a6b", color: "#fff", border: "none", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontWeight: 600 }}>
+              {!isReadOnly && <button onClick={() => setShowPricebook(true)} style={{ fontSize: 11, background: "#1a3a6b", color: "#fff", border: "none", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontWeight: 600 }}>
                 📋 Browse Pricebook
-              </button>
+              </button>}
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
@@ -447,7 +452,10 @@ export default function WorkOrder405({ prefill, onSave }) {
                 <input style={s.input} value={form.printName} onChange={e => set("printName", e.target.value)} />
                 <div style={{ marginTop: 8 }}>
                   <label style={s.label}>Signature</label>
-                  <SignaturePad value={form.signature} onChange={v => set("signature", v)} />
+                  {isReadOnly && form.signature
+                    ? <img src={form.signature} alt="Signature" style={{ width: "100%", height: 80, objectFit: "contain", border: "1.5px solid #1a3a6b", borderRadius: 4, background: "#fff" }} />
+                    : <SignaturePad value={form.signature} onChange={v => set("signature", v)} />
+                  }
                 </div>
                 <div style={{ marginTop: 8 }}>
                   <label style={s.label}>Date</label>
@@ -483,12 +491,14 @@ export default function WorkOrder405({ prefill, onSave }) {
           </div>
 
           {/* SUBMIT */}
+          {!isReadOnly && (
           <div style={{ display: "flex", justifyContent: "center", marginTop: 20, paddingBottom: 16 }}>
             <button onClick={() => { const wo = {...form, id: Date.now(), savedAt: new Date().toISOString()}; if(onSave) onSave(wo); setSubmitted(true); }}
               style={{ background: "#1a3a6b", color: "#fff", border: "none", borderRadius: 10, padding: "14px 48px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
               Submit Work Order
             </button>
           </div>
+          )}
 
         </div>
       </div>
