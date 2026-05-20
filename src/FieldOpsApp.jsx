@@ -1051,6 +1051,7 @@ function InvoicesScreen() {
           <button onClick={()=>setSelected(null)} style={{ background:"none",border:"none",color:"var(--blue)",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:0 }}>← Work Orders</button>
           <div style={{ display:"flex",gap:8 }}>
             <Btn small variant="secondary" onClick={()=>printWorkOrder(selected)}>🖨️ Print</Btn>
+            {selected.email&&<Btn small variant="secondary" onClick={()=>{const sub=encodeURIComponent(`Work Order ${selected.wo||""} - 405 Heating & Air`);const bod=encodeURIComponent(`Hello ${selected.customer||""},\n\nWork Order #: ${selected.wo||"—"}\nDate: ${selected.date||"—"}\nTechnician: ${selected.technician||"—"}\nComplaint: ${selected.complaint||"—"}\nDescription: ${selected.descriptionOfWork||"—"}\nTotal Due: ${selected.totalAmount?"$"+selected.totalAmount:"—"}\n\nThank you for choosing 405 Heating & Air Conditioning.\n405-215-7685\n426 W Boomer St, Lexington, OK 73051`);window.open(`mailto:${selected.email}?subject=${sub}&body=${bod}`);}}>✉️ Email</Btn>}
             <Btn small variant="danger" onClick={()=>deleteWO(selected.id)}>Delete</Btn>
           </div>
         </div>
