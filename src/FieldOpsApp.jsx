@@ -626,7 +626,14 @@ function JobsScreen() {
                 </div>
                 <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
                   {job.status==="scheduled"&&<Btn small variant="secondary" onClick={()=>handleStatusChange(job.id,"en_route")}>→ En Route</Btn>}
-                  {job.status==="scheduled"&&job.customer_phone&&<Btn small variant="secondary" onClick={()=>window.open(`sms:${job.customer_phone}?body=${encodeURIComponent(`Hi ${job.customer_name}, your 405 Heating & Air technician is on the way! They should arrive shortly. Call us at 405-215-7685 with any questions.`)}`)}>📱 Notify</Btn>}
+                  {job.status==="scheduled"&&<Btn small variant="secondary" onClick={async()=>{
+                    try {
+                      const c = await apiFetch(`/customers/${job.customer_id}`);
+                      const phone = c?.phone || c?.cell;
+                      if (!phone) { alert("No phone number on file for this customer."); return; }
+                      window.open(`sms:${phone}?body=${encodeURIComponent(`Hi ${job.customer_name}, your 405 Heating & Air technician is on the way! They should arrive shortly. Call us at 405-215-7685 with any questions.`)}`);
+                    } catch { alert("Could not load customer phone."); }
+                  }}>📱 Notify</Btn>}
                   {job.status==="en_route"&&<Btn small variant="secondary" onClick={()=>handleStatusChange(job.id,"in_progress")}>→ Start Job</Btn>}
                   {job.status==="in_progress"&&<Btn small onClick={()=>handleStatusChange(job.id,"completed")}>✓ Complete</Btn>}
                   <Btn small variant="secondary" onClick={()=>setDetailJob(job)}>📝 Notes & Photos</Btn>
