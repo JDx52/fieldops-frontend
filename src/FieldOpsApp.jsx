@@ -340,9 +340,14 @@ function Dashboard() {
         const [s,j,wo] = await Promise.all([
           apiFetch("/company/stats"),
           apiFetch("/jobs?limit=5"),
-          apiFetch("/work-orders?limit=1").catch(()=>({total:0}))
+          apiFetch("/work-orders?limit=500").catch(()=>({total:0,data:[]}))
         ]);
-        setStats({...s, work_orders_count: wo?.total || 0});
+        const woList = Array.isArray(wo?.data) ? wo.data : [];
+        const now = new Date();
+        const revenueThisMonth = woList
+          .filter(w => { const d = new Date(w.saved_at || w.savedAt || w.created_at); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); })
+          .reduce((sum, w) => sum + (parseFloat(w.total_amount || w.totalAmount) || 0), 0);
+        setStats({...s, work_orders_count: wo?.total || woList.length, revenue_this_month: revenueThisMonth});
         setJobs(Array.isArray(j)?j:[]);
       } catch(e) { console.error(e); }
       setLoading(false);
@@ -354,7 +359,7 @@ function Dashboard() {
     <div style={{ padding:24,overflowY:"auto",flex:1 }}>
       <div className="fade-in" style={{ marginBottom:24 }}><h2 style={{ fontSize:22,fontFamily:"var(--display)",fontWeight:700,marginBottom:4 }}>Good morning, {user?.name?.split(" ")[0]} 👋</h2><p style={{ fontSize:13,color:"var(--text3)" }}>Here's what's happening at {user?.company?.name} today.</p></div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20 }}>
-        {[{label:"Jobs Today",val:stats?.jobs_today??0,icon:"📅",color:"var(--blue)"},{label:"This Week",val:stats?.jobs_this_week??0,icon:"📆",color:"#7C3AED"},{label:"Revenue / Month",val:fmt$(stats?.revenue_this_month??0),icon:"💰",color:"var(--green)"},{label:"Open Invoices",val:fmt$(stats?.open_invoices_total??0),icon:"📄",color:"var(--amber)"}].map((k,i)=>(
+        {[{label:"Jobs Today",val:stats?.jobs_today??0,icon:"📅",color:"var(--blue)"},{label:"This Week",val:stats?.jobs_this_week??0,icon:"📆",color:"#7C3AED"},{label:"Revenue / Month",val:fmt$(stats?.revenue_this_month??0),icon:"💰",color:"var(--green)"},{label:"Work Orders",val:stats?.work_orders_count??0,icon:"📋",color:"var(--amber)"}].map((k,i)=>(
           <Card key={i} className={`fade-in s${Math.min(i+1,3)}`} style={{ padding:"16px 18px" }}><div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10 }}><span style={{ fontSize:11,color:"var(--text3)",fontWeight:600,fontFamily:"var(--display)",letterSpacing:"0.06em",textTransform:"uppercase" }}>{k.label}</span><span style={{ fontSize:18 }}>{k.icon}</span></div><div style={{ fontSize:26,fontFamily:"var(--mono)",fontWeight:600,color:k.color,lineHeight:1 }}>{k.val}</div></Card>
         ))}
       </div>
