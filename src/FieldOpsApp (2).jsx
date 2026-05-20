@@ -1395,7 +1395,18 @@ function AppShell() {
     "/invoices": <InvoicesScreen />,
     "/jobs": <JobsScreen />,
     "/team": <TeamScreen />,
-    "/workorder": <WorkOrder405 prefill={currentJob} onSave={async wo=>{ await saveWorkOrder({...wo,customerId:currentJob?.customerId}); setCurrentJob(null); }} />,
+    "/workorder": <WorkOrder405 prefill={currentJob} onSave={async wo=>{
+      await saveWorkOrder({...wo,customerId:currentJob?.customerId});
+      if (wo.jobId || currentJob?.jobId) {
+        const jobId = wo.jobId || currentJob?.jobId;
+        fetch(`${API_URL}/jobs/${jobId}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+          body: JSON.stringify({ status: "completed" })
+        }).catch(()=>{});
+      }
+      setCurrentJob(null);
+    }} />,
     "/pricebook": <Pricebook />,
     "/reports": <ReportsScreen />,
   };
