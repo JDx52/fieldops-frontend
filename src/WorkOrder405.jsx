@@ -161,6 +161,7 @@ function PricebookPicker({ onClose, onSelect }) {
 }
 
 export default function WorkOrder405({ prefill, onSave, readOnly }) {
+  const savedData = readOnly || null;
   function generateWO() {
     const API = "https://fieldops-api-production-b341.up.railway.app/v1";
     const token = localStorage.getItem("fieldops_token");
