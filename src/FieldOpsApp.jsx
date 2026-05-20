@@ -342,12 +342,12 @@ function Dashboard() {
           apiFetch("/jobs?limit=5"),
           apiFetch("/work-orders?limit=500").catch(()=>({total:0,data:[]}))
         ]);
-        const woList = Array.isArray(wo?.data) ? wo.data : [];
+        const woList = Array.isArray(wo) ? wo : Array.isArray(wo?.data) ? wo.data : [];
         const now = new Date();
         const revenueThisMonth = woList
           .filter(w => { const d = new Date(w.created_at || w.saved_at || w.savedAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); })
           .reduce((sum, w) => sum + (parseFloat(w.total_amount || w.totalAmount) || 0), 0);
-        setStats({...s, work_orders_count: wo?.total || woList.length, revenue_this_month: revenueThisMonth});
+        setStats({...s, work_orders_count: woList.length, revenue_this_month: revenueThisMonth});
         setJobs(Array.isArray(j)?j:[]);
       } catch(e) { console.error(e); }
       setLoading(false);
