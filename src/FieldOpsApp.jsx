@@ -1364,9 +1364,9 @@ const PAGE_TITLES_MAP = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Cu
 const MOBILE_NAV = [
   {id:"/",icon:"⊞",label:"Home"},
   {id:"/jobs",icon:"🔧",label:"Jobs"},
-  {id:"/customers",icon:"👥",label:"Customers"},
-  {id:"/invoices",icon:"📄",label:"WO List"},
-  {id:"/workorder",icon:"📋",label:"New WO"},
+  {id:"/invoices",icon:"📄",label:"Work Orders"},
+  {id:"/estimates",icon:"📝",label:"Estimates"},
+  {id:"/pricebook",icon:"💲",label:"Pricebook"},
 ];
 
 function ReportsScreen() {

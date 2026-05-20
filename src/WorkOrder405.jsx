@@ -504,24 +504,40 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
                 📋 Browse Pricebook
               </button>}
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-              <thead>
-                <tr><th style={s.th} colSpan={8}>MATERIALS</th></tr>
-                <tr>{["Qty","Description","Unit Price","Amount","Qty","Description","Unit Price","Amount"].map((h,i) => <th key={i} style={{ ...s.th, background: "#555" }}>{h}</th>)}</tr>
-              </thead>
-              <tbody>
-                {[0,2,4,6].map(startIdx => (
-                  <tr key={startIdx} style={{ borderBottom: "1px solid #eee" }}>
-                    {[startIdx, startIdx+1].map(i => [
-                      <td key={`${i}q`} style={{ ...s.cell, width: "5%" }}><input style={s.input} value={form.materials[i]?.qty||""} onChange={e => updateMaterial(i,"qty",e.target.value)} /></td>,
-                      <td key={`${i}d`} style={{ ...s.cell, width: "25%" }}><input style={s.input} value={form.materials[i]?.description||""} onChange={e => updateMaterial(i,"description",e.target.value)} /></td>,
-                      <td key={`${i}u`} style={{ ...s.cell, width: "10%" }}><input style={s.input} value={form.materials[i]?.unitPrice||""} onChange={e => updateMaterial(i,"unitPrice",e.target.value)} /></td>,
-                      <td key={`${i}a`} style={{ ...s.cell, width: "10%" }}><input style={s.input} value={form.materials[i]?.amount||""} onChange={e => updateMaterial(i,"amount",e.target.value)} /></td>,
-                    ])}
-                  </tr>
+            {isMobile ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {form.materials.map((m, i) => (
+                  <div key={i} style={{ border: "1px solid #ddd", borderRadius: 8, padding: 10, background: "#fafafa" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#888", marginBottom: 6 }}>Item {i + 1}</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 6 }}>
+                      <div><div style={{ fontSize: 9, color: "#888", marginBottom: 2 }}>QTY</div><input style={{ ...s.input, padding: "6px 8px" }} value={m?.qty||""} onChange={e => updateMaterial(i,"qty",e.target.value)} placeholder="1" /></div>
+                      <div><div style={{ fontSize: 9, color: "#888", marginBottom: 2 }}>DESCRIPTION</div><input style={{ ...s.input, padding: "6px 8px" }} value={m?.description||""} onChange={e => updateMaterial(i,"description",e.target.value)} placeholder="Part or service" /></div>
+                      <div><div style={{ fontSize: 9, color: "#888", marginBottom: 2 }}>UNIT PRICE</div><input style={{ ...s.input, padding: "6px 8px" }} value={m?.unitPrice||""} onChange={e => updateMaterial(i,"unitPrice",e.target.value)} placeholder="0.00" /></div>
+                      <div><div style={{ fontSize: 9, color: "#888", marginBottom: 2 }}>AMOUNT</div><input style={{ ...s.input, padding: "6px 8px" }} value={m?.amount||""} onChange={e => updateMaterial(i,"amount",e.target.value)} placeholder="0.00" /></div>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr><th style={s.th} colSpan={8}>MATERIALS</th></tr>
+                  <tr>{["Qty","Description","Unit Price","Amount","Qty","Description","Unit Price","Amount"].map((h,i) => <th key={i} style={{ ...s.th, background: "#555" }}>{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {[0,2,4,6].map(startIdx => (
+                    <tr key={startIdx} style={{ borderBottom: "1px solid #eee" }}>
+                      {[startIdx, startIdx+1].map(i => [
+                        <td key={`${i}q`} style={{ ...s.cell, width: "5%" }}><input style={s.input} value={form.materials[i]?.qty||""} onChange={e => updateMaterial(i,"qty",e.target.value)} /></td>,
+                        <td key={`${i}d`} style={{ ...s.cell, width: "25%" }}><input style={s.input} value={form.materials[i]?.description||""} onChange={e => updateMaterial(i,"description",e.target.value)} /></td>,
+                        <td key={`${i}u`} style={{ ...s.cell, width: "10%" }}><input style={s.input} value={form.materials[i]?.unitPrice||""} onChange={e => updateMaterial(i,"unitPrice",e.target.value)} /></td>,
+                        <td key={`${i}a`} style={{ ...s.cell, width: "10%" }}><input style={s.input} value={form.materials[i]?.amount||""} onChange={e => updateMaterial(i,"amount",e.target.value)} /></td>,
+                      ])}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {/* BOTTOM: ACK + WARRANTY + TOTALS */}
