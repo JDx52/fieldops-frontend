@@ -285,6 +285,7 @@ const NAV_ITEMS = [
   {id:"/team",icon:"👷",label:"Team"},
   {id:"/workorder",icon:"📋",label:"Work Order"},
   {id:"/pricebook",icon:"💲",label:"Pricebook"},
+  {id:"/estimates",icon:"📝",label:"Estimates"},
   {id:"/reports",icon:"📊",label:"Reports"},
 ];
 
@@ -321,7 +322,7 @@ function Sidebar({ collapsed, setCollapsed }) {
 }
 
 // ── TOP BAR ──
-const PAGE_TITLES = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/invoices":"Work Orders","/jobs":"Jobs","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook","/reports":"Reports"};
+const PAGE_TITLES = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/invoices":"Work Orders","/jobs":"Jobs","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook","/reports":"Reports","/estimates":"Estimates"};
 function TopBar() {
   const { route } = useRouter();
   return <div style={{ height:56,background:"var(--surface)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",padding:"0 24px",gap:16,flexShrink:0 }}><h1 style={{ flex:1,fontSize:18,fontFamily:"var(--display)",fontWeight:700,letterSpacing:"-0.01em" }}>{PAGE_TITLES[route]||"FieldOps"}</h1><div style={{ fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)",whiteSpace:"nowrap" }}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div></div>;
@@ -334,25 +335,27 @@ function Dashboard() {
   const [stats, setStats] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  async function load() {
+    try {
+      const [s,j,wo] = await Promise.all([
+        apiFetch("/company/stats"),
+        apiFetch("/jobs?limit=5"),
+        apiFetch("/work-orders?limit=500").catch(()=>[])
+      ]);
+      const woList = Array.isArray(wo) ? wo : Array.isArray(wo?.data) ? wo.data : [];
+      const now = new Date();
+      const revenueThisMonth = woList
+        .filter(w => { const d = new Date(w.created_at || w.saved_at || w.savedAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); })
+        .reduce((sum, w) => sum + (parseFloat(w.total_amount || w.totalAmount) || 0), 0);
+      setStats({...s, work_orders_count: woList.length, revenue_this_month: revenueThisMonth});
+      setJobs(Array.isArray(j)?j:[]);
+    } catch(e) { console.error(e); }
+    setLoading(false);
+  }
   useEffect(() => {
-    async function load() {
-      try {
-        const [s,j,wo] = await Promise.all([
-          apiFetch("/company/stats"),
-          apiFetch("/jobs?limit=5"),
-          apiFetch("/work-orders?limit=500").catch(()=>({total:0,data:[]}))
-        ]);
-        const woList = Array.isArray(wo) ? wo : Array.isArray(wo?.data) ? wo.data : [];
-        const now = new Date();
-        const revenueThisMonth = woList
-          .filter(w => { const d = new Date(w.created_at || w.saved_at || w.savedAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); })
-          .reduce((sum, w) => sum + (parseFloat(w.total_amount || w.totalAmount) || 0), 0);
-        setStats({...s, work_orders_count: woList.length, revenue_this_month: revenueThisMonth});
-        setJobs(Array.isArray(j)?j:[]);
-      } catch(e) { console.error(e); }
-      setLoading(false);
-    }
     load();
+    const interval = setInterval(load, 60000);
+    return () => clearInterval(interval);
   }, []);
   if (loading) return <div style={{ flex:1,display:"flex",alignItems:"center",justifyContent:"center" }}><Spinner /></div>;
   return (
@@ -638,6 +641,7 @@ function JobsScreen() {
                   {job.status==="in_progress"&&<Btn small onClick={()=>handleStatusChange(job.id,"completed")}>✓ Complete</Btn>}
                   <Btn small variant="secondary" onClick={()=>setDetailJob(job)}>📝 Notes & Photos</Btn>
                   <Btn small variant="secondary" onClick={()=>openWorkOrder(job)}>📋 Work Order</Btn>
+                  {job.status!=="completed"&&job.status!=="cancelled"&&<AssignTechBtn job={job} onAssigned={load} />}
                 </div>
               </Card>
             ))}
@@ -1243,7 +1247,7 @@ function NewMemberModal({ onClose, onSave }) {
 }
 
 // ── APP SHELL ──
-const PAGE_TITLES_MAP = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/jobs":"Jobs","/invoices":"Work Orders","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook","/reports":"Reports"};
+const PAGE_TITLES_MAP = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/jobs":"Jobs","/invoices":"Work Orders","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook","/reports":"Reports","/estimates":"Estimates"};
 const MOBILE_NAV = [
   {id:"/",icon:"⊞",label:"Home"},
   {id:"/jobs",icon:"🔧",label:"Jobs"},
@@ -1389,6 +1393,199 @@ function ReportsScreen() {
   );
 }
 
+// ── ASSIGN TECH BUTTON ──
+function AssignTechBtn({ job, onAssigned }) {
+  const [techs, setTechs] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function loadTechs() {
+    if (techs.length) { setOpen(true); return; }
+    try { const d = await apiFetch("/users?limit=100"); setTechs(Array.isArray(d)?d.filter(u=>u.role==="technician"||u.role==="admin"):[]); } catch {}
+    setOpen(true);
+  }
+
+  async function assign(techId) {
+    setSaving(true);
+    try {
+      await apiFetch(`/jobs/${job.id}`, { method: "PATCH", body: JSON.stringify({ technician_ids: [techId] }) });
+      setOpen(false);
+      if (onAssigned) onAssigned();
+    } catch(e) { alert(e.message); }
+    setSaving(false);
+  }
+
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <Btn small variant="secondary" onClick={loadTechs}>👷 Assign</Btn>
+      {open && (
+        <div style={{ position:"fixed",inset:0,zIndex:200 }} onClick={()=>setOpen(false)}>
+          <div style={{ position:"absolute",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:10,boxShadow:"0 8px 32px #00000020",minWidth:180,zIndex:201,padding:8 }} onClick={e=>e.stopPropagation()}>
+            <div style={{ fontSize:11,fontWeight:700,color:"var(--text3)",padding:"4px 8px",textTransform:"uppercase",letterSpacing:"0.06em" }}>Assign Technician</div>
+            {techs.length===0?<div style={{ padding:"8px",fontSize:13,color:"var(--text3)" }}>No technicians found</div>:techs.map(t=>(
+              <button key={t.id} onClick={()=>assign(t.id)} disabled={saving} style={{ display:"block",width:"100%",textAlign:"left",padding:"8px 12px",background:"none",border:"none",fontSize:13,cursor:"pointer",borderRadius:6,fontFamily:"var(--sans)" }} onMouseEnter={e=>e.currentTarget.style.background="var(--surface2)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>{t.name}</button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── ESTIMATES SCREEN ──
+function EstimatesScreen() {
+  const { navigate } = useRouter();
+  const [estimates, setEstimates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showNew, setShowNew] = useState(false);
+  const [customers, setCustomers] = useState([]);
+
+  useEffect(() => {
+    Promise.all([
+      apiFetch("/estimates?limit=100").catch(()=>[]),
+      apiFetch("/customers?limit=100").catch(()=>[]),
+    ]).then(([e, c]) => {
+      setEstimates(Array.isArray(e) ? e : []);
+      setCustomers(Array.isArray(c) ? c : []);
+    }).finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
+      {showNew && <NewEstimateModal customers={customers} onClose={()=>setShowNew(false)} onSave={e=>{setEstimates(p=>[e,...p]);setShowNew(false);}} />}
+      <div style={{ padding:"14px 20px",background:"var(--surface)",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0 }}>
+        <div><div style={{ fontSize:16,fontFamily:"var(--display)",fontWeight:700 }}>Estimates</div><div style={{ fontSize:12,color:"var(--text3)",marginTop:2 }}>{estimates.length} estimate{estimates.length!==1?"s":""}</div></div>
+        <Btn small onClick={()=>setShowNew(true)}>+ New Estimate</Btn>
+      </div>
+      <div style={{ flex:1,overflowY:"auto",padding:16 }}>
+        {loading ? <Spinner /> : estimates.length===0 ? (
+          <EmptyState icon="📝" title="No estimates yet" desc="Create your first estimate to send to a customer" action={<Btn onClick={()=>setShowNew(true)}>+ New Estimate</Btn>} />
+        ) : (
+          <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
+            {estimates.map(est=>(
+              <Card key={est.id} style={{ padding:"14px 18px" }}>
+                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6 }}>
+                  <div>
+                    <div style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:3 }}>{est.estimate_number||est.id?.slice(0,8)}</div>
+                    <div style={{ fontSize:15,fontWeight:700 }}>{est.title||"Estimate"}</div>
+                    <div style={{ fontSize:13,color:"var(--text3)",marginTop:2 }}>{est.customer_name||"Customer"}</div>
+                  </div>
+                  <div style={{ textAlign:"right" }}>
+                    <div style={{ fontSize:18,fontFamily:"var(--mono)",fontWeight:700,color:"var(--green)" }}>${parseFloat(est.total||est.subtotal||0).toFixed(2)}</div>
+                    <Chip status={est.status||"draft"} />
+                  </div>
+                </div>
+                <div style={{ fontSize:12,color:"var(--text3)" }}>{fmtDate(est.created_at)}</div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NewEstimateModal({ customers, onClose, onSave }) {
+  const [form, setForm] = useState({ customer_id:"", title:"", notes:"", tax_rate: 8.75 });
+  const [lines, setLines] = useState([{ description:"", qty:1, unit_price:"" }]);
+  const [saving, setSaving] = useState(false);
+
+  function addLine() { setLines(p=>[...p,{ description:"", qty:1, unit_price:"" }]); }
+  function removeLine(i) { setLines(p=>p.filter((_,idx)=>idx!==i)); }
+  function updateLine(i, field, val) { setLines(p=>p.map((l,idx)=>idx===i?{...l,[field]:val}:l)); }
+
+  const subtotal = lines.reduce((s,l)=>s+(parseFloat(l.unit_price)||0)*(parseInt(l.qty)||1),0);
+  const tax = subtotal * (parseFloat(form.tax_rate)||0) / 100;
+  const total = subtotal + tax;
+
+  async function handleSave() {
+    if (!form.customer_id) { alert("Please select a customer"); return; }
+    if (!form.title.trim()) { alert("Please enter a title"); return; }
+    setSaving(true);
+    try {
+      // Find a job for this customer or create standalone estimate
+      const payload = {
+        customer_id: form.customer_id,
+        title: form.title,
+        notes: form.notes,
+        tax_rate: parseFloat(form.tax_rate)||0,
+        line_items: lines.filter(l=>l.description).map(l=>({ description:l.description, qty:parseInt(l.qty)||1, unit_price:parseFloat(l.unit_price)||0, total:(parseFloat(l.unit_price)||0)*(parseInt(l.qty)||1) })),
+        subtotal, tax, total,
+        status: "draft",
+      };
+      // Try to save via API, fallback to local
+      let saved;
+      try { saved = await apiFetch("/estimates", { method:"POST", body:JSON.stringify(payload) }); } catch {}
+      onSave(saved || { ...payload, id: Date.now().toString(), created_at: new Date().toISOString() });
+    } finally { setSaving(false); }
+  }
+
+  const inp = { width:"100%",padding:"9px 12px",borderRadius:7,fontSize:13,border:"1px solid var(--border)",outline:"none",fontFamily:"var(--sans)",boxSizing:"border-box" };
+
+  return (
+    <Modal title="New Estimate" onClose={onClose} width={640}>
+      <div style={{ padding:"20px 24px",display:"flex",flexDirection:"column",gap:14,maxHeight:"70vh",overflowY:"auto" }}>
+        <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12 }}>
+          <FormField label="Customer *">
+            <select style={inp} value={form.customer_id} onChange={e=>setForm(p=>({...p,customer_id:e.target.value}))}>
+              <option value="">Select customer…</option>
+              {customers.map(c=><option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Title *">
+            <input style={inp} value={form.title} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="e.g. AC Tune-Up & Repair" />
+          </FormField>
+        </div>
+
+        <div>
+          <div style={{ fontSize:11,fontWeight:700,color:"var(--text2)",letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:8,fontFamily:"var(--display)" }}>Line Items</div>
+          <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+            <thead><tr style={{ background:"var(--surface2)" }}>
+              <th style={{ padding:"6px 10px",textAlign:"left",fontSize:11,fontWeight:600,color:"var(--text3)",borderBottom:"1px solid var(--border)" }}>Description</th>
+              <th style={{ padding:"6px 10px",textAlign:"center",fontSize:11,fontWeight:600,color:"var(--text3)",borderBottom:"1px solid var(--border)",width:60 }}>Qty</th>
+              <th style={{ padding:"6px 10px",textAlign:"right",fontSize:11,fontWeight:600,color:"var(--text3)",borderBottom:"1px solid var(--border)",width:100 }}>Unit Price</th>
+              <th style={{ padding:"6px 10px",textAlign:"right",fontSize:11,fontWeight:600,color:"var(--text3)",borderBottom:"1px solid var(--border)",width:90 }}>Total</th>
+              <th style={{ width:30,borderBottom:"1px solid var(--border)" }}></th>
+            </tr></thead>
+            <tbody>
+              {lines.map((l,i)=>(
+                <tr key={i} style={{ borderBottom:"1px solid var(--border)" }}>
+                  <td style={{ padding:"6px 8px" }}><input style={{ ...inp,padding:"6px 8px" }} value={l.description} onChange={e=>updateLine(i,"description",e.target.value)} placeholder="Description" /></td>
+                  <td style={{ padding:"6px 8px" }}><input type="number" min="1" style={{ ...inp,padding:"6px 8px",textAlign:"center" }} value={l.qty} onChange={e=>updateLine(i,"qty",e.target.value)} /></td>
+                  <td style={{ padding:"6px 8px" }}><input type="number" min="0" step="0.01" style={{ ...inp,padding:"6px 8px",textAlign:"right" }} value={l.unit_price} onChange={e=>updateLine(i,"unit_price",e.target.value)} placeholder="0.00" /></td>
+                  <td style={{ padding:"6px 8px",textAlign:"right",fontWeight:600,color:"var(--green)" }}>${((parseFloat(l.unit_price)||0)*(parseInt(l.qty)||1)).toFixed(2)}</td>
+                  <td style={{ padding:"6px 8px",textAlign:"center" }}>{lines.length>1&&<button onClick={()=>removeLine(i)} style={{ background:"none",border:"none",color:"var(--red)",cursor:"pointer",fontSize:16 }}>×</button>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button onClick={addLine} style={{ marginTop:8,background:"none",border:"1px dashed var(--border)",borderRadius:6,padding:"6px 14px",fontSize:12,color:"var(--text3)",cursor:"pointer",width:"100%" }}>+ Add line item</button>
+        </div>
+
+        <div style={{ display:"flex",justifyContent:"flex-end" }}>
+          <div style={{ background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:10,padding:"14px 20px",minWidth:200 }}>
+            <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:6 }}><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
+            <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:6,alignItems:"center" }}>
+              <span>Tax %</span>
+              <input type="number" min="0" step="0.01" style={{ width:60,padding:"3px 6px",border:"1px solid var(--border)",borderRadius:4,fontSize:12,textAlign:"right" }} value={form.tax_rate} onChange={e=>setForm(p=>({...p,tax_rate:e.target.value}))} />
+            </div>
+            <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:8 }}><span>Tax</span><span>${tax.toFixed(2)}</span></div>
+            <div style={{ display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:"var(--blue)",borderTop:"1px solid var(--border)",paddingTop:8 }}><span>Total</span><span>${total.toFixed(2)}</span></div>
+          </div>
+        </div>
+
+        <FormField label="Notes (visible to customer)">
+          <textarea style={{ ...inp,height:80,resize:"vertical" }} value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Thank you for your business…" />
+        </FormField>
+      </div>
+      <div style={{ padding:"16px 24px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:10 }}>
+        <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={handleSave} disabled={saving}>{saving?"Saving…":"Save Estimate"}</Btn>
+      </div>
+    </Modal>
+  );
+}
+
 function AppShell() {
   const { route, navigate } = useRouter();
   const [collapsed, setCollapsed] = useState(false);
@@ -1417,6 +1614,7 @@ function AppShell() {
       setCurrentJob(null);
     }} />,
     "/pricebook": <Pricebook />,
+    "/estimates": <EstimatesScreen />,
     "/reports": <ReportsScreen />,
   };
 
