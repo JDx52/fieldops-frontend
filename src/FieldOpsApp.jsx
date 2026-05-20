@@ -345,7 +345,7 @@ function Dashboard() {
         const woList = Array.isArray(wo?.data) ? wo.data : [];
         const now = new Date();
         const revenueThisMonth = woList
-          .filter(w => { const d = new Date(w.saved_at || w.savedAt || w.created_at); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); })
+          .filter(w => { const d = new Date(w.created_at || w.saved_at || w.savedAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); })
           .reduce((sum, w) => sum + (parseFloat(w.total_amount || w.totalAmount) || 0), 0);
         setStats({...s, work_orders_count: wo?.total || woList.length, revenue_this_month: revenueThisMonth});
         setJobs(Array.isArray(j)?j:[]);
@@ -1273,7 +1273,7 @@ function ReportsScreen() {
   workOrders.forEach(wo => {
     const amt = parseFloat(wo.total_amount || wo.totalAmount || 0);
     if (!amt) return;
-    const d = new Date(wo.saved_at || wo.savedAt || wo.created_at || wo.createdAt);
+    const d = new Date(wo.created_at || wo.saved_at || wo.savedAt || wo.createdAt);
     if (isNaN(d)) return;
     const m = months.find(x => x.month === d.getMonth() && x.year === d.getFullYear());
     if (m) { m.revenue += amt; m.count++; }
