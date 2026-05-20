@@ -626,6 +626,7 @@ function JobsScreen() {
                 </div>
                 <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
                   {job.status==="scheduled"&&<Btn small variant="secondary" onClick={()=>handleStatusChange(job.id,"en_route")}>→ En Route</Btn>}
+                  {job.status==="scheduled"&&job.customer_phone&&<Btn small variant="secondary" onClick={()=>window.open(`sms:${job.customer_phone}?body=${encodeURIComponent(`Hi ${job.customer_name}, your 405 Heating & Air technician is on the way! They should arrive shortly. Call us at 405-215-7685 with any questions.`)}`)}>📱 Notify</Btn>}
                   {job.status==="en_route"&&<Btn small variant="secondary" onClick={()=>handleStatusChange(job.id,"in_progress")}>→ Start Job</Btn>}
                   {job.status==="in_progress"&&<Btn small onClick={()=>handleStatusChange(job.id,"completed")}>✓ Complete</Btn>}
                   <Btn small variant="secondary" onClick={()=>setDetailJob(job)}>📝 Notes & Photos</Btn>
@@ -1240,8 +1241,8 @@ const MOBILE_NAV = [
   {id:"/",icon:"⊞",label:"Home"},
   {id:"/jobs",icon:"🔧",label:"Jobs"},
   {id:"/customers",icon:"👥",label:"Customers"},
-  {id:"/invoices",icon:"📄",label:"Work Orders"},
-  {id:"/pricebook",icon:"💲",label:"Pricebook"},
+  {id:"/invoices",icon:"📄",label:"WO List"},
+  {id:"/workorder",icon:"📋",label:"New WO"},
 ];
 
 function ReportsScreen() {
@@ -1257,7 +1258,7 @@ function ReportsScreen() {
           apiFetch("/work-orders?limit=500").catch(() => ({ data: [] })),
         ]);
         setJobs(Array.isArray(j) ? j : []);
-        setWorkOrders(Array.isArray(wo?.data) ? wo.data : Array.isArray(wo) ? wo : []);
+        setWorkOrders(Array.isArray(wo) ? wo : Array.isArray(wo?.data) ? wo.data : []);
       } catch(e) { console.error(e); }
       setLoading(false);
     }
