@@ -242,6 +242,11 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
   });
 
   const isReadOnly = !!readOnly;
+  useEffect(() => {
+    if (!isReadOnly && !savedData?.wo) {
+      generateWO().then(wo => setForm(p => ({ ...p, wo })));
+    }
+  }, []);
 
   // Generate sequential WO number on mount
   useEffect(() => {
