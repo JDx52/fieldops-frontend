@@ -1033,6 +1033,107 @@ function printWorkOrder(wo) {
   win.document.close();
 }
 
+function printInvoice(wo) {
+  const materials = (wo.materials || []).filter(m => m.description);
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Invoice ${wo.wo || ""}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 11px; color: #111; background: #fff; }
+    .page { max-width: 800px; margin: 0 auto; padding: 32px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1a3a6b; padding-bottom: 20px; margin-bottom: 24px; }
+    .company h1 { font-size: 22px; color: #1a3a6b; font-weight: 900; }
+    .company p { font-size: 12px; color: #666; margin-top: 4px; }
+    .invoice-info { text-align: right; }
+    .invoice-info .inv-num { font-size: 28px; font-weight: 900; color: #1a3a6b; }
+    .invoice-info .inv-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.08em; }
+    .bill-to { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; padding: 16px; background: #f8f9fb; border-radius: 8px; }
+    .bill-to h3 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 8px; }
+    .bill-to p { font-size: 13px; line-height: 1.6; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    th { background: #1a3a6b; color: #fff; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+    td { padding: 10px 12px; border-bottom: 1px solid #e4e8ef; font-size: 13px; }
+    tr:nth-child(even) td { background: #f8f9fb; }
+    .totals { display: flex; justify-content: flex-end; }
+    .totals-box { width: 280px; }
+    .totals-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid #e4e8ef; }
+    .totals-total { display: flex; justify-content: space-between; padding: 12px 0; font-size: 20px; font-weight: 900; color: #1a3a6b; border-top: 2px solid #1a3a6b; margin-top: 4px; }
+    .notes { margin-top: 24px; padding: 16px; background: #f8f9fb; border-radius: 8px; font-size: 12px; color: #555; }
+    .footer { margin-top: 32px; text-align: center; font-size: 11px; color: #888; border-top: 1px solid #e4e8ef; padding-top: 16px; }
+    @media print { @page { margin: 0.5cm; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="company">
+      <h1>405 Heating and Air Conditioning</h1>
+      <p>426 West Boomer Street · Lexington, Oklahoma 73051</p>
+      <p>405-215-7685 · jaycedunaway5212@gmail.com</p>
+    </div>
+    <div class="invoice-info">
+      <div class="inv-label">Invoice</div>
+      <div class="inv-num">${wo.wo||"—"}</div>
+      <div style="font-size:12px;color:#666;margin-top:6px">Date: ${wo.date||new Date().toLocaleDateString()}</div>
+      <div style="font-size:12px;color:#666">Due: Upon Receipt</div>
+    </div>
+  </div>
+
+  <div class="bill-to">
+    <div>
+      <h3>Bill To</h3>
+      <p><strong>${wo.customer||"—"}</strong></p>
+      ${wo.billingAddress?`<p>${wo.billingAddress}</p>`:""}
+      ${wo.phone?`<p>📞 ${wo.phone}</p>`:""}
+      ${wo.email?`<p>✉ ${wo.email}</p>`:""}
+    </div>
+    <div>
+      <h3>Service Details</h3>
+      ${wo.technician?`<p><strong>Technician:</strong> ${wo.technician}</p>`:""}
+      ${wo.complaint?`<p><strong>Issue:</strong> ${wo.complaint}</p>`:""}
+      ${wo.timeIn?`<p><strong>Time In:</strong> ${wo.timeIn}</p>`:""}
+      ${wo.timeOut?`<p><strong>Time Out:</strong> ${wo.timeOut}</p>`:""}
+    </div>
+  </div>
+
+  ${materials.length > 0 ? `
+  <table>
+    <thead><tr><th>Description</th><th>Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Amount</th></tr></thead>
+    <tbody>
+      ${materials.map(m=>`<tr><td>${m.description}</td><td>${m.qty||1}</td><td style="text-align:right">${m.unitPrice?"$"+m.unitPrice:""}</td><td style="text-align:right;font-weight:600">${m.amount?"$"+m.amount:""}</td></tr>`).join("")}
+    </tbody>
+  </table>` : `
+  <table>
+    <thead><tr><th>Description</th><th style="text-align:right">Amount</th></tr></thead>
+    <tbody><tr><td>${wo.complaint||wo.descriptionOfWork||"Service"}</td><td style="text-align:right;font-weight:600">${wo.totalAmount?"$"+wo.totalAmount:"—"}</td></tr></tbody>
+  </table>`}
+
+  <div class="totals">
+    <div class="totals-box">
+      ${wo.regHrs?`<div class="totals-row"><span>Regular Hours (${wo.regHrs} hrs @ $${wo.rate||0})</span><span>$${wo.amount||0}</span></div>`:""}
+      <div class="totals-total"><span>Total Due</span><span>${wo.totalAmount?"$"+wo.totalAmount:"$0.00"}</span></div>
+    </div>
+  </div>
+
+  ${wo.descriptionOfWork?`<div class="notes"><strong>Work Performed:</strong> ${wo.descriptionOfWork}</div>`:""}
+  ${wo.recommendations?`<div class="notes" style="margin-top:12px"><strong>Recommendations:</strong> ${wo.recommendations}</div>`:""}
+
+  <div class="footer">
+    <p>Thank you for choosing 405 Heating and Air Conditioning!</p>
+    <p style="margin-top:4px">Payment due upon receipt · 405-215-7685 · 426 W Boomer St, Lexington, OK 73051</p>
+  </div>
+</div>
+<script>window.onload=function(){window.print()}</script>
+</body>
+</html>`;
+  const win = window.open("", "_blank");
+  win.document.write(html);
+  win.document.close();
+}
+
 function InvoicesScreen() {
   const [list, setList] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -1063,7 +1164,19 @@ function InvoicesScreen() {
           <button onClick={()=>setSelected(null)} style={{ background:"none",border:"none",color:"var(--blue)",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:0 }}>← Work Orders</button>
           <div style={{ display:"flex",gap:8 }}>
             <Btn small variant="secondary" onClick={()=>printWorkOrder(selected)}>🖨️ Print</Btn>
-            {selected.email&&<Btn small variant="secondary" onClick={()=>{const sub=encodeURIComponent(`Work Order ${selected.wo||""} - 405 Heating & Air`);const bod=encodeURIComponent(`Hello ${selected.customer||""},\n\nWork Order #: ${selected.wo||"—"}\nDate: ${selected.date||"—"}\nTechnician: ${selected.technician||"—"}\nComplaint: ${selected.complaint||"—"}\nDescription: ${selected.descriptionOfWork||"—"}\nTotal Due: ${selected.totalAmount?"$"+selected.totalAmount:"—"}\n\nThank you for choosing 405 Heating & Air Conditioning.\n405-215-7685\n426 W Boomer St, Lexington, OK 73051`);window.open(`mailto:${selected.email}?subject=${sub}&body=${bod}`);}}>✉️ Email</Btn>}
+            <Btn small variant="secondary" onClick={()=>{
+              const email = selected.email || prompt("Enter customer email:");
+              if (!email) return;
+              const sub=encodeURIComponent(`Work Order ${selected.wo||""} - 405 Heating & Air`);
+              const bod=encodeURIComponent(`Hello ${selected.customer||""},\n\nWork Order #: ${selected.wo||"—"}\nDate: ${selected.date||"—"}\nTechnician: ${selected.technician||"—"}\nComplaint: ${selected.complaint||"—"}\nDescription: ${selected.descriptionOfWork||"—"}\nTotal Due: ${selected.totalAmount?"$"+selected.totalAmount:"—"}\n\nThank you for choosing 405 Heating & Air Conditioning.\n405-215-7685\n426 W Boomer St, Lexington, OK 73051`);
+              window.open(`mailto:${email}?subject=${sub}&body=${bod}`);
+            }}>✉️ Email</Btn>
+            <Btn small variant="secondary" onClick={()=>printInvoice(selected)}>🧾 Invoice</Btn>
+            <Btn small variant="secondary" onClick={()=>{
+              const data = encodeURIComponent(JSON.stringify(selected));
+              const url = `${window.location.origin}${window.location.pathname}#/portal?wo=${data}`;
+              navigator.clipboard.writeText(url).then(()=>alert("Portal link copied to clipboard! Share this with your customer.")).catch(()=>prompt("Copy this link:", url));
+            }}>🔗 Share</Btn>
             <Btn small variant="danger" onClick={()=>deleteWO(selected.id)}>Delete</Btn>
           </div>
         </div>
@@ -1394,6 +1507,62 @@ function ReportsScreen() {
 }
 
 // ── ASSIGN TECH BUTTON ──
+// ── CUSTOMER PORTAL ──
+function CustomerPortalScreen() {
+  const wo = (() => {
+    try {
+      const params = new URLSearchParams(window.location.hash.split("?")[1]);
+      const data = params.get("wo");
+      return data ? JSON.parse(decodeURIComponent(data)) : null;
+    } catch { return null; }
+  })();
+
+  if (!wo) return (
+    <div style={{ minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f1f3f7",padding:24 }}>
+      <div style={{ textAlign:"center",color:"#666" }}>
+        <div style={{ fontSize:48,marginBottom:12 }}>🔍</div>
+        <div style={{ fontSize:18,fontWeight:700,marginBottom:8 }}>Work Order Not Found</div>
+        <div style={{ fontSize:14 }}>This link may have expired or is invalid.</div>
+      </div>
+    </div>
+  );
+
+  const materials = (wo.materials||[]).filter(m=>m.description);
+
+  return (
+    <div style={{ minHeight:"100vh",background:"#f1f3f7",padding:16 }}>
+      <div style={{ maxWidth:600,margin:"0 auto" }}>
+        <div style={{ background:"#1a3a6b",borderRadius:"12px 12px 0 0",padding:"20px 24px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+          <div><div style={{ fontSize:20,fontWeight:900,color:"#fff" }}>405 Heating & Air</div><div style={{ fontSize:12,color:"#8bb4e8",marginTop:2 }}>Work Order Summary</div></div>
+          <div style={{ textAlign:"right" }}><div style={{ fontSize:11,color:"#8bb4e8",textTransform:"uppercase",letterSpacing:"0.08em" }}>WO#</div><div style={{ fontSize:22,fontWeight:900,color:"#fff" }}>{wo.wo||"—"}</div></div>
+        </div>
+        <div style={{ background:"#fff",padding:20,borderRadius:"0 0 12px 12px",boxShadow:"0 4px 20px #00000015" }}>
+          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16 }}>
+            {[["Customer",wo.customer],["Date",wo.date],["Technician",wo.technician],["Phone","405-215-7685"]].filter(([,v])=>v).map(([l,v])=>(
+              <div key={l}><div style={{ fontSize:10,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4 }}>{l}</div><div style={{ fontSize:14,fontWeight:500 }}>{v}</div></div>
+            ))}
+          </div>
+          {wo.complaint&&<div style={{ background:"#f8f9fb",borderRadius:8,padding:14,marginBottom:16 }}><div style={{ fontSize:10,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6 }}>Issue</div><div style={{ fontSize:14 }}>{wo.complaint}</div></div>}
+          {wo.descriptionOfWork&&<div style={{ background:"#f8f9fb",borderRadius:8,padding:14,marginBottom:16 }}><div style={{ fontSize:10,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6 }}>Work Performed</div><div style={{ fontSize:14,lineHeight:1.6,whiteSpace:"pre-wrap" }}>{wo.descriptionOfWork}</div></div>}
+          {materials.length>0&&<div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:10,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8 }}>Materials</div>
+            {materials.map((m,i)=><div key={i} style={{ display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #e4e8ef",fontSize:13 }}><span>{m.qty&&m.qty!=="1"?`${m.qty}x `:""}{m.description}</span><span style={{ fontWeight:600,color:"#0d7b4e" }}>{m.amount?"$"+m.amount:""}</span></div>)}
+          </div>}
+          <div style={{ background:"#1a3a6b",borderRadius:10,padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+            <div style={{ fontSize:13,color:"#8bb4e8",fontWeight:600 }}>Total Due</div>
+            <div style={{ fontSize:28,fontWeight:900,color:"#fff" }}>{wo.totalAmount?"$"+wo.totalAmount:"$0.00"}</div>
+          </div>
+          {wo.recommendations&&<div style={{ marginTop:16,background:"#fffbeb",border:"1px solid #fcd34d",borderRadius:8,padding:14 }}><div style={{ fontSize:10,fontWeight:700,color:"#b45309",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6 }}>Recommendations</div><div style={{ fontSize:13,lineHeight:1.6 }}>{wo.recommendations}</div></div>}
+          <div style={{ marginTop:20,textAlign:"center",fontSize:12,color:"#888",borderTop:"1px solid #e4e8ef",paddingTop:16 }}>
+            <div style={{ fontWeight:600,color:"#333",marginBottom:4 }}>405 Heating and Air Conditioning</div>
+            <div>426 W Boomer St, Lexington, OK · 405-215-7685</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AssignTechBtn({ job, onAssigned }) {
   const [techs, setTechs] = useState([]);
   const [open, setOpen] = useState(false);
@@ -1658,5 +1827,10 @@ function AppWithProviders() {
     </>
   );
 }
-function AppInner() { const { user } = useAuth(); return user ? <AppShell /> : <LoginScreen />; }
+function AppInner() {
+  const { user } = useAuth();
+  // Customer portal — no auth needed
+  if (window.location.hash.startsWith("#/portal")) return <CustomerPortalScreen />;
+  return user ? <AppShell /> : <LoginScreen />;
+}
 export default AppWithProviders;

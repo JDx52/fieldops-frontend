@@ -162,6 +162,8 @@ function PricebookPicker({ onClose, onSelect }) {
 
 export default function WorkOrder405({ prefill, onSave, readOnly }) {
   const savedData = readOnly || null;
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => { const h = () => setIsMobile(window.innerWidth < 768); window.addEventListener('resize', h); return () => window.removeEventListener('resize', h); }, []);
 
   function generateWO() {
     // Sequential: fetch count from API, fallback to timestamp
@@ -326,7 +328,7 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
         <div style={{ padding: "10px 16px" }}>
 
           {/* JOB TYPE */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, marginBottom: 10, border: "1px solid #ccc", padding: 8, borderRadius: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 2, marginBottom: 10, border: "1px solid #ccc", padding: 8, borderRadius: 6 }}>
             {JOB_TYPES.map(t => (
               <label key={t} style={s.checkItem}>
                 <input type="checkbox" style={s.checkbox} checked={form.jobTypes.includes(t)} onChange={() => toggleJobType(t)} />
@@ -336,7 +338,7 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
           </div>
 
           {/* CUSTOMER INFO */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
             <div>
               <label style={s.label}>Customer</label>
               {customers.length > 0 && !prefill?.customer ? (
@@ -451,7 +453,7 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
             <div style={{ background: "#333", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", padding: "4px 8px", marginBottom: 6, textTransform: "uppercase" }}>
               Service Checklist
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: 2 }}>
               {CHECKLIST_ITEMS.map((row, ri) => row.map((item, ci) => item ? (
                 <label key={`${ri}-${ci}`} style={s.checkItem}>
                   <input type="checkbox" style={s.checkbox} checked={form.checklist.includes(item)} onChange={() => toggleChecklist(item)} />
@@ -523,7 +525,7 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
           </div>
 
           {/* BOTTOM: ACK + WARRANTY + TOTALS */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 12, marginTop: 12 }}>
             <div style={{ border: "1px solid #ccc", borderRadius: 6, padding: 10, fontSize: 9, color: "#444", lineHeight: 1.5 }}>
               <div style={{ fontWeight: 700, fontSize: 10, marginBottom: 4 }}>Acknowledgment of Work Performed</div>
               I have authority to order the work outlined above which has been satisfactorily completed. I agree that Seller retains title to equipment/materials furnished until final payment is made. If payment is not made as agreed, Seller can remove said equipment/materials at Seller's expense.
