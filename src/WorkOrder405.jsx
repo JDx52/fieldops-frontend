@@ -162,32 +162,7 @@ function PricebookPicker({ onClose, onSelect }) {
 
 export default function WorkOrder405({ prefill, onSave, readOnly }) {
   const savedData = readOnly || null;
-  function generateWO() {
-    const API = "https://fieldops-api-production-b341.up.railway.app/v1";
-    const token = localStorage.getItem("fieldops_token");
-    return fetch(`${API}/work-orders?limit=200`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(d => {
-        const list = Array.isArray(d.data) ? d.data : [];
-        let max = 0;
-        list.forEach(w => {
-          const n = parseInt((w.wo_number || "").replace(/[^0-9]/g, ""));
-          if (!isNaN(n) && n > max) max = n;
-        });
-        return `WO-${String(max + 1).padStart(4, "0")}`;
-      })
-      .catch(() => `WO-${String(Date.now()).slice(-4)}`);
-  }
- 
-  const [users, setUsers] = useState([]);
-  const [customers, setCustomers] = useState([]);
- 
-  useEffect(() => {
-    const API = "https://fieldops-api-production-b341.up.railway.app/v1";
-    const hdrs = { Authorization: `Bearer ${localStorage.getItem("fieldops_token")}` };
-    fetch(`${API}/users?limit=100`, { headers: hdrs }).then(r=>r.json()).then(d=>setUsers(Array.isArray(d.data)?d.data:[])).catch(()=>{});
-    fetch(`${API}/customers?limit=100`, { headers: hdrs }).then(r=>r.json()).then(d=>setCustomers(Array.isArray(d.data)?d.data:[])).catch(()=>{});
-  }, []);
+
   function generateWO() {
     // Sequential: fetch count from API, fallback to timestamp
     const API = process.env.REACT_APP_API_URL || "https://fieldops-api-production-b341.up.railway.app/v1";
@@ -242,11 +217,6 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
   });
 
   const isReadOnly = !!readOnly;
-  useEffect(() => {
-    if (!isReadOnly && !savedData?.wo) {
-      generateWO().then(wo => setForm(p => ({ ...p, wo })));
-    }
-  }, []);
 
   // Generate sequential WO number on mount
   useEffect(() => {
