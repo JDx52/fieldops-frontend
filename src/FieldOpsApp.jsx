@@ -285,6 +285,7 @@ const NAV_ITEMS = [
   {id:"/team",icon:"👷",label:"Team"},
   {id:"/workorder",icon:"📋",label:"Work Order"},
   {id:"/pricebook",icon:"💲",label:"Pricebook"},
+  {id:"/reports",icon:"📊",label:"Reports"},
 ];
 
 function Sidebar({ collapsed, setCollapsed }) {
@@ -320,7 +321,7 @@ function Sidebar({ collapsed, setCollapsed }) {
 }
 
 // ── TOP BAR ──
-const PAGE_TITLES = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/invoices":"Work Orders","/jobs":"Jobs","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook"};
+const PAGE_TITLES = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/invoices":"Work Orders","/jobs":"Jobs","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook","/reports":"Reports"};
 function TopBar() {
   const { route } = useRouter();
   return <div style={{ height:56,background:"var(--surface)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",padding:"0 24px",gap:16,flexShrink:0 }}><h1 style={{ flex:1,fontSize:18,fontFamily:"var(--display)",fontWeight:700,letterSpacing:"-0.01em" }}>{PAGE_TITLES[route]||"FieldOps"}</h1><div style={{ fontSize:11,color:"var(--text3)",fontFamily:"var(--mono)",whiteSpace:"nowrap" }}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div></div>;
@@ -353,7 +354,7 @@ function Dashboard() {
     <div style={{ padding:24,overflowY:"auto",flex:1 }}>
       <div className="fade-in" style={{ marginBottom:24 }}><h2 style={{ fontSize:22,fontFamily:"var(--display)",fontWeight:700,marginBottom:4 }}>Good morning, {user?.name?.split(" ")[0]} 👋</h2><p style={{ fontSize:13,color:"var(--text3)" }}>Here's what's happening at {user?.company?.name} today.</p></div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20 }}>
-        {[{label:"Jobs Today",val:stats?.jobs_today??0,icon:"📅",color:"var(--blue)"},{label:"This Week",val:stats?.jobs_this_week??0,icon:"📆",color:"#7C3AED"},{label:"Revenue / Month",val:fmt$(stats?.revenue_this_month??0),icon:"💰",color:"var(--green)"},{label:"Work Orders",val:stats?.work_orders_count??0,icon:"📋",color:"var(--amber)"}].map((k,i)=>(
+        {[{label:"Jobs Today",val:stats?.jobs_today??0,icon:"📅",color:"var(--blue)"},{label:"This Week",val:stats?.jobs_this_week??0,icon:"📆",color:"#7C3AED"},{label:"Revenue / Month",val:fmt$(stats?.revenue_this_month??0),icon:"💰",color:"var(--green)"},{label:"Open Invoices",val:fmt$(stats?.open_invoices_total??0),icon:"📄",color:"var(--amber)"}].map((k,i)=>(
           <Card key={i} className={`fade-in s${Math.min(i+1,3)}`} style={{ padding:"16px 18px" }}><div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10 }}><span style={{ fontSize:11,color:"var(--text3)",fontWeight:600,fontFamily:"var(--display)",letterSpacing:"0.06em",textTransform:"uppercase" }}>{k.label}</span><span style={{ fontSize:18 }}>{k.icon}</span></div><div style={{ fontSize:26,fontFamily:"var(--mono)",fontWeight:600,color:k.color,lineHeight:1 }}>{k.val}</div></Card>
         ))}
       </div>
@@ -1228,7 +1229,7 @@ function NewMemberModal({ onClose, onSave }) {
 }
 
 // ── APP SHELL ──
-const PAGE_TITLES_MAP = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/jobs":"Jobs","/invoices":"Work Orders","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook"};
+const PAGE_TITLES_MAP = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/jobs":"Jobs","/invoices":"Work Orders","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook","/reports":"Reports"};
 const MOBILE_NAV = [
   {id:"/",icon:"⊞",label:"Home"},
   {id:"/jobs",icon:"🔧",label:"Jobs"},
@@ -1236,6 +1237,143 @@ const MOBILE_NAV = [
   {id:"/invoices",icon:"📄",label:"Work Orders"},
   {id:"/workorder",icon:"📋",label:"Work Order"},
 ];
+
+function ReportsScreen() {
+  const [jobs, setJobs] = useState([]);
+  const [workOrders, setWorkOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [j, wo] = await Promise.all([
+          apiFetch("/jobs?limit=500").catch(() => []),
+          apiFetch("/work-orders?limit=500").catch(() => ({ data: [] })),
+        ]);
+        setJobs(Array.isArray(j) ? j : []);
+        setWorkOrders(Array.isArray(wo?.data) ? wo.data : Array.isArray(wo) ? wo : []);
+      } catch(e) { console.error(e); }
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  // Build last 6 months revenue from work orders totalAmount
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    months.push({ label: d.toLocaleString("default", { month: "short", year: "2-digit" }), month: d.getMonth(), year: d.getFullYear(), revenue: 0, count: 0 });
+  }
+  workOrders.forEach(wo => {
+    const amt = parseFloat(wo.total_amount || wo.totalAmount || 0);
+    if (!amt) return;
+    const d = new Date(wo.saved_at || wo.savedAt || wo.created_at || wo.createdAt);
+    if (isNaN(d)) return;
+    const m = months.find(x => x.month === d.getMonth() && x.year === d.getFullYear());
+    if (m) { m.revenue += amt; m.count++; }
+  });
+
+  // Also pull from jobs that have a total
+  jobs.forEach(job => {
+    const amt = parseFloat(job.total_amount || job.totalAmount || 0);
+    if (!amt) return;
+    const d = new Date(job.scheduled_at || job.created_at);
+    if (isNaN(d)) return;
+    const m = months.find(x => x.month === d.getMonth() && x.year === d.getFullYear());
+    if (m) { m.revenue += amt; m.count++; }
+  });
+
+  const maxRev = Math.max(...months.map(m => m.revenue), 1);
+  const totalRev = months.reduce((s, m) => s + m.revenue, 0);
+  const totalJobs = jobs.length;
+  const completedJobs = jobs.filter(j => j.status === "completed").length;
+  const fmt$ = v => "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // Job status breakdown
+  const statusCounts = {};
+  jobs.forEach(j => { statusCounts[j.status] = (statusCounts[j.status] || 0) + 1; });
+  const statusColors = { completed: "#10B981", scheduled: "#3B82F6", pending: "#F59E0B", cancelled: "#EF4444", "in-progress": "#8B5CF6" };
+
+  return (
+    <div style={{ flex: 1, overflowY: "auto", padding: 24, background: "var(--bg)" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto" }}>
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Revenue Reports</h2>
+          <div style={{ fontSize: 13, color: "var(--text3)", marginTop: 4 }}>Last 6 months overview</div>
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign: "center", padding: 60, color: "var(--text3)" }}>Loading...</div>
+        ) : (
+          <>
+            {/* Summary Cards */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
+              {[
+                { label: "6-Month Revenue", val: fmt$(totalRev), icon: "💰", color: "#10B981" },
+                { label: "Total Jobs", val: totalJobs, icon: "🔧", color: "#3B82F6" },
+                { label: "Completed Jobs", val: completedJobs, icon: "✅", color: "#7C3AED" },
+              ].map(c => (
+                <div key={c.label} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "20px 24px" }}>
+                  <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{c.label}</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: c.color }}>{c.val}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bar Chart */}
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 24, marginBottom: 24 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 20 }}>Revenue by Month</div>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 12, height: 180 }}>
+                {months.map(m => (
+                  <div key={m.label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                    <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600 }}>
+                      {m.revenue > 0 ? fmt$(m.revenue) : "—"}
+                    </div>
+                    <div style={{
+                      width: "100%", borderRadius: "6px 6px 0 0",
+                      background: m.revenue > 0 ? "linear-gradient(180deg, #3B82F6, #1D4ED8)" : "var(--border)",
+                      height: m.revenue > 0 ? `${Math.max((m.revenue / maxRev) * 140, 4)}px` : "4px",
+                      transition: "height .3s"
+                    }} />
+                    <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 500 }}>{m.label}</div>
+                    {m.count > 0 && <div style={{ fontSize: 10, color: "var(--text3)" }}>{m.count} WO</div>}
+                  </div>
+                ))}
+              </div>
+              {totalRev === 0 && (
+                <div style={{ textAlign: "center", color: "var(--text3)", fontSize: 13, marginTop: 12 }}>
+                  No revenue data yet — submit work orders with a total amount to see data here.
+                </div>
+              )}
+            </div>
+
+            {/* Job Status Breakdown */}
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 24 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Job Status Breakdown</div>
+              {Object.keys(statusCounts).length === 0 ? (
+                <div style={{ color: "var(--text3)", fontSize: 13 }}>No jobs yet.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {Object.entries(statusCounts).map(([status, count]) => (
+                    <div key={status} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: statusColors[status] || "#8899BB", flexShrink: 0 }} />
+                      <div style={{ width: 110, fontSize: 13, fontWeight: 600, textTransform: "capitalize" }}>{status}</div>
+                      <div style={{ flex: 1, background: "var(--border)", borderRadius: 4, height: 8, overflow: "hidden" }}>
+                        <div style={{ width: `${(count / totalJobs) * 100}%`, height: "100%", background: statusColors[status] || "#8899BB", borderRadius: 4 }} />
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 700, width: 30, textAlign: "right" }}>{count}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function AppShell() {
   const { route, navigate } = useRouter();
@@ -1254,6 +1392,7 @@ function AppShell() {
     "/team": <TeamScreen />,
     "/workorder": <WorkOrder405 prefill={currentJob} onSave={async wo=>{ await saveWorkOrder({...wo,customerId:currentJob?.customerId}); setCurrentJob(null); }} />,
     "/pricebook": <Pricebook />,
+    "/reports": <ReportsScreen />,
   };
 
   const content = (
