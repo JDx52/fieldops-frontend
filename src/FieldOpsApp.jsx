@@ -1,6 +1,6 @@
 /* eslint-disable */
 // v4.1 — scheduling overhaul: schedule/reschedule buttons, time display, no end time
-import { useState, useContext, createContext, useCallback, useEffect } from "react";
+import { useState, useContext, createContext, useCallback, useEffect, useRef } from "react";
 import WorkOrder405 from "./WorkOrder405";
 import Pricebook from "./Pricebook";
 
@@ -218,11 +218,71 @@ function Sidebar({ collapsed, setCollapsed }) {
 
 const PAGE_TITLES = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/invoices":"Work Orders","/jobs":"Jobs","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook","/reports":"Reports","/estimates":"Estimates"};
 function TopBar() {
-  const { route } = useRouter();
-  return <div style={{ height:60,background:"var(--surface)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",padding:"0 28px",gap:16,flexShrink:0 }}>
-    <h1 style={{ flex:1,fontSize:17,fontFamily:"var(--display)",fontWeight:700,letterSpacing:"-0.02em",color:"var(--text1)" }}>{PAGE_TITLES[route]||"FieldOps"}</h1>
-    <div style={{ fontSize:11.5,color:"var(--text4)",fontFamily:"var(--mono)",whiteSpace:"nowrap",background:"var(--surface2)",padding:"4px 10px",borderRadius:6,border:"1px solid var(--border)" }}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div>
-  </div>;
+  const { route, navigate } = useRouter();
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClick(e) { if(ref.current && !ref.current.contains(e.target)) { setOpen(false); setResults(null); setQuery(""); } }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  useEffect(() => {
+    if(!query.trim()) { setResults(null); return; }
+    const t = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const q = encodeURIComponent(query.trim());
+        const [jobs, customers, wos] = await Promise.all([
+          apiFetch(`/jobs?limit=5&search=${q}`).catch(()=>[]),
+          apiFetch(`/customers?limit=5&search=${q}`).catch(()=>[]),
+          fetchWorkOrders(`&search=${q}`).catch(()=>[]),
+        ]);
+        setResults({
+          jobs: Array.isArray(jobs) ? jobs.slice(0,5) : [],
+          customers: Array.isArray(customers) ? customers.slice(0,5) : [],
+          wos: Array.isArray(wos) ? wos.slice(0,4) : [],
+        });
+      } catch(e) { console.error(e); }
+      setSearching(false);
+    }, 280);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const hasResults = results && (results.jobs.length>0 || results.customers.length>0 || results.wos.length>0);
+
+  return (
+    <div style={{ height:60,background:"var(--surface)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",padding:"0 24px",gap:16,flexShrink:0 }}>
+      <h1 style={{ flex:"none",fontSize:17,fontFamily:"var(--display)",fontWeight:700,letterSpacing:"-0.02em",color:"var(--text1)",minWidth:120 }}>{PAGE_TITLES[route]||"FieldOps"}</h1>
+      {/* Global Search */}
+      <div ref={ref} style={{ flex:1,maxWidth:480,position:"relative" }}>
+        <div style={{ position:"relative" }}>
+          <span style={{ position:"absolute",left:11,top:"50%",transform:"translateY(-50%)",fontSize:13,color:"var(--text4)",pointerEvents:"none" }}>⌕</span>
+          <input
+            value={query}
+            onChange={e=>{setQuery(e.target.value);setOpen(true);}}
+            onFocus={()=>setOpen(true)}
+            placeholder="Search jobs, customers, work orders…"
+            style={{ ...inputStyle,paddingLeft:32,paddingRight:12,background:"var(--surface2)",border:"1px solid var(--border)",fontSize:13,borderRadius:8 }}
+          />
+          {searching&&<span style={{ position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"var(--text4)" }}>…</span>}
+        </div>
+        {open && query.trim() && (
+          <div style={{ position:"absolute",top:"calc(100% + 6px)",left:0,right:0,background:"var(--surface)",border:"1px solid var(--border2)",borderRadius:12,boxShadow:"0 16px 40px rgba(0,0,0,0.5)",zIndex:500,maxHeight:420,overflowY:"auto" }}>
+            {!hasResults && !searching && <div style={{ padding:"20px 16px",textAlign:"center",fontSize:13,color:"var(--text4)" }}>No results for "{query}"</div>}
+            {results?.jobs.length>0&&(<><div style={{ padding:"8px 14px 4px",fontSize:10,fontWeight:700,color:"var(--text4)",textTransform:"uppercase",letterSpacing:"0.08em" }}>Jobs</div>{results.jobs.map(j=><div key={j.id} onClick={()=>{navigate("/jobs");setOpen(false);setQuery("");}} style={{ padding:"9px 14px",cursor:"pointer",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center" }} onMouseEnter={e=>e.currentTarget.style.background="var(--surface2)"} onMouseLeave={e=>e.currentTarget.style.background=""}><div><div style={{ fontSize:13,fontWeight:600 }}>{j.title}</div><div style={{ fontSize:11,color:"var(--text3)" }}>{j.customer_name} · {j.job_number}</div></div><Chip status={j.status} /></div>)}</>)}
+            {results?.customers.length>0&&(<><div style={{ padding:"8px 14px 4px",fontSize:10,fontWeight:700,color:"var(--text4)",textTransform:"uppercase",letterSpacing:"0.08em" }}>Customers</div>{results.customers.map(c=><div key={c.id} onClick={()=>{navigate("/customers");setOpen(false);setQuery("");}} style={{ padding:"9px 14px",cursor:"pointer",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:10 }} onMouseEnter={e=>e.currentTarget.style.background="var(--surface2)"} onMouseLeave={e=>e.currentTarget.style.background=""}><div style={{ width:28,height:28,borderRadius:"50%",background:"var(--blue-lt)",border:"1px solid var(--blue-bd)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"var(--blue)",flexShrink:0 }}>{(c.first_name||"?")[0]}{(c.last_name||"")[0]}</div><div><div style={{ fontSize:13,fontWeight:600 }}>{c.first_name} {c.last_name}</div><div style={{ fontSize:11,color:"var(--text3)" }}>{c.phone||c.email||"No contact"}</div></div></div>)}</>)}
+            {results?.wos.length>0&&(<><div style={{ padding:"8px 14px 4px",fontSize:10,fontWeight:700,color:"var(--text4)",textTransform:"uppercase",letterSpacing:"0.08em" }}>Work Orders</div>{results.wos.map(w=><div key={w.id} onClick={()=>{navigate("/invoices");setOpen(false);setQuery("");}} style={{ padding:"9px 14px",cursor:"pointer",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center" }} onMouseEnter={e=>e.currentTarget.style.background="var(--surface2)"} onMouseLeave={e=>e.currentTarget.style.background=""}><div><div style={{ fontSize:13,fontWeight:600 }}>{w.complaint||"Work Order"}</div><div style={{ fontSize:11,color:"var(--text3)" }}>{w.customer} · WO#{w.wo}</div></div><span style={{ fontSize:13,fontWeight:700,color:"var(--green)" }}>{w.totalAmount?`$${w.totalAmount}`:""}</span></div>)}</>)}
+          </div>
+        )}
+      </div>
+      <div style={{ fontSize:11.5,color:"var(--text4)",fontFamily:"var(--mono)",whiteSpace:"nowrap",background:"var(--surface2)",padding:"4px 10px",borderRadius:6,border:"1px solid var(--border)",flexShrink:0 }}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div>
+    </div>
+  );
 }
 
 function Dashboard() {
@@ -475,6 +535,11 @@ function ScheduleJobModal({ job, onClose, onScheduled }) {
   }
 
   const isUnscheduled = (job) => !job.scheduled_start || job.status === "unscheduled";
+  const isOverdue = (job) => {
+    if(job.status==="completed"||job.status==="cancelled") return false;
+    if(!job.scheduled_start) return false;
+    return new Date(job.scheduled_start) < new Date() && job.status!=="in_progress" && job.status!=="en_route";
+  };
 
   return (
     <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
@@ -500,22 +565,27 @@ function ScheduleJobModal({ job, onClose, onScheduled }) {
             {jobs.map(job=>{
               const scheduled = fmtScheduled(job.scheduled_start);
               const unscheduled = isUnscheduled(job);
+              const overdue = isOverdue(job);
               return (
-                <Card key={job.id} style={{ padding:"14px 18px" }}>
+                <Card key={job.id} style={{ padding:"14px 18px",borderLeft:overdue?"3px solid var(--red)":undefined }}>
                   <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8 }}>
                     <div>
                       <div style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:3 }}>{job.job_number}</div>
                       <div style={{ fontSize:16,fontWeight:700,fontFamily:"var(--display)" }}>{job.title}</div>
                     </div>
-                    <Chip status={job.status} />
+                    <div style={{ display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4 }}>
+                      <Chip status={job.status} />
+                      {overdue&&<span style={{ fontSize:10,fontWeight:700,color:"var(--red)",background:"var(--red-lt)",border:"1px solid var(--red-bd)",borderRadius:4,padding:"2px 7px",letterSpacing:"0.04em" }}>⚠ OVERDUE</span>}
+                    </div>
                   </div>
 
-                  <div style={{ display:"flex",gap:16,fontSize:13,color:"var(--text2)",flexWrap:"wrap",marginBottom:10 }}>
-                    <span>👤 {job.customer_name}</span>
+                  <div style={{ display:"flex",gap:16,fontSize:13,color:"var(--text2)",flexWrap:"wrap",marginBottom:6 }}>
+                    <span>👤 {job.customer_name}{job.customer_job_count>1?<span style={{ marginLeft:6,fontSize:11,background:"var(--surface2)",border:"1px solid var(--border2)",borderRadius:100,padding:"1px 7px",color:"var(--text3)",fontWeight:600 }}>{job.customer_job_count} visits</span>:null}</span>
                     <span style={{ cursor:"pointer",color:"var(--blue)" }} onClick={e=>{e.stopPropagation();window.open(`https://maps.google.com/?q=${encodeURIComponent(job.address_line1?`${job.address_line1}, ${job.city}, ${job.state}`:`${job.city}, ${job.state}`)}`)}}>
                       📍 {job.address_line1?`${job.address_line1}, ${job.city}, ${job.state}`:`${job.city}, ${job.state}`}
                     </span>
                   </div>
+                  {job.priority&&job.priority!=="normal"&&<div style={{ display:"inline-flex",alignItems:"center",gap:5,background:job.priority==="urgent"?"var(--red-lt)":job.priority==="high"?"var(--amber-lt)":"var(--surface2)",border:`1px solid ${job.priority==="urgent"?"var(--red-bd)":job.priority==="high"?"var(--amber-bd)":"var(--border)"}`,borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:600,color:job.priority==="urgent"?"var(--red)":job.priority==="high"?"var(--amber)":"var(--text3)",marginBottom:6 }}>{job.priority==="urgent"?"🔴":job.priority==="high"?"🟡":"⚪"} {job.priority.charAt(0).toUpperCase()+job.priority.slice(1)} Priority</div>}
 
                   {/* Scheduled time display */}
                   {scheduled ? (
@@ -596,6 +666,35 @@ function NewJobModal({ onClose, onSave }) {
   );
 }
 
+// ── QUICK NOTE MODAL ──
+function QuickNoteModal({ job, onClose, onSaved }) {
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  async function handleSave() {
+    if(!note.trim()) return;
+    setSaving(true);
+    try {
+      await apiFetch(`/jobs/${job.id}/notes`, { method:"POST", body:JSON.stringify({ content:note.trim(), note_type:"general" }) });
+      if(onSaved) onSaved();
+      onClose();
+    } catch(e) { alert(e.message); }
+    setSaving(false);
+  }
+  return (
+    <Modal title={`Quick Note — ${job.title}`} onClose={onClose} width={460}>
+      <div style={{ padding:"18px 24px",display:"flex",flexDirection:"column",gap:12 }}>
+        <div style={{ fontSize:12,color:"var(--text3)" }}>{job.customer_name}</div>
+        <textarea autoFocus value={note} onChange={e=>setNote(e.target.value)} placeholder="Add a note…" style={{ ...inputStyle,height:110,resize:"vertical" }} onKeyDown={e=>{ if(e.key==="Enter"&&e.metaKey) handleSave(); }} />
+        <div style={{ fontSize:11,color:"var(--text4)" }}>⌘↩ to save</div>
+      </div>
+      <div style={{ padding:"14px 24px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:10 }}>
+        <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={handleSave} disabled={saving||!note.trim()}>{saving?"Saving…":"Add Note"}</Btn>
+      </div>
+    </Modal>
+  );
+}
+
 // ── DISPATCH ──
 function DispatchScreen() {
   const [data, setData] = useState(null);
@@ -606,6 +705,7 @@ function DispatchScreen() {
   const [view, setView] = useState("list");
   const [weekJobs, setWeekJobs] = useState([]);
   const [weekLoading, setWeekLoading] = useState(false);
+  const [quickNoteJob, setQuickNoteJob] = useState(null);
 
   useEffect(()=>{apiFetch("/users?limit=100").then(d=>setTechs(Array.isArray(d)?d:[])).catch(()=>{});},[]);
   useEffect(()=>{ setLoading(true); apiFetch(`/dispatch?date=${date}`).then(d=>setData(d)).catch(()=>setData({technicians:[],unassigned:[]})).finally(()=>setLoading(false)); },[date]);
@@ -633,6 +733,7 @@ function DispatchScreen() {
 
   return (
     <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
+      {quickNoteJob&&<QuickNoteModal job={quickNoteJob} onClose={()=>setQuickNoteJob(null)} onSaved={()=>setQuickNoteJob(null)} />}
       <div style={{ padding:"12px 20px",background:"var(--surface)",borderBottom:"1px solid var(--border)",display:"flex",gap:12,alignItems:"center",flexWrap:"wrap" }}>
         {view==="calendar" ? (
           <div style={{ display:"flex",alignItems:"center",gap:8 }}>
@@ -659,7 +760,7 @@ function DispatchScreen() {
           {loading?<Spinner />:(<>
             {dispatchTechs.length===0&&unassigned.length===0&&<EmptyState icon="📡" title="No jobs scheduled" desc={`No jobs found for ${fmtDate(date)}`} />}
             {unassigned.length>0&&(<Card style={{ border:"1px solid var(--red-bd)",overflow:"hidden" }}><div style={{ padding:"10px 16px",background:"var(--red-lt)",borderBottom:"1px solid var(--red-bd)",fontSize:13,fontWeight:600,color:"var(--red)" }}>● Unassigned ({unassigned.length})</div><div style={{ display:"flex",flexDirection:"column",gap:8,padding:10 }}>{unassigned.map(job=>(<div key={job.id} style={{ background:"var(--surface2)",border:"1px solid var(--border)",borderLeft:"3px solid var(--red)",borderRadius:8,padding:"10px 12px" }}><div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap" }}><div><div style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:3 }}>{job.job_number}</div><div style={{ fontSize:13,fontWeight:600,marginBottom:3 }}>{job.title}</div><div style={{ fontSize:11,color:"var(--text3)" }}>{job.customer_name}</div></div><div style={{ display:"flex",alignItems:"center",gap:8,flexShrink:0 }}><select defaultValue="" disabled={assigning[job.id]} onChange={e=>assignTech(job.id,e.target.value)} style={{ ...inputStyle,width:"auto",padding:"5px 10px",fontSize:12,cursor:"pointer" }}><option value="" disabled>Assign to…</option>{techs.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>{assigning[job.id]&&<span style={{ fontSize:11,color:"var(--text3)" }}>Saving…</span>}</div></div></div>))}</div></Card>)}
-            {dispatchTechs.map(tech=>(<Card key={tech.id} style={{ overflow:"hidden" }}><div style={{ padding:"10px 16px",background:"var(--surface2)",borderBottom:tech.jobs?.length?"1px solid var(--border)":"none",display:"flex",alignItems:"center",gap:10 }}><div style={{ width:32,height:32,borderRadius:"50%",background:"var(--blue-lt)",border:"1px solid var(--blue-bd)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"var(--blue)",flexShrink:0 }}>{tech.name?.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div><span style={{ fontSize:13,fontWeight:600 }}>{tech.name}</span><span style={{ fontSize:11,color:"var(--text3)",marginLeft:4 }}>{tech.jobs?.length||0} job{tech.jobs?.length!==1?"s":""}</span></div>{tech.jobs?.length>0?<div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:8,padding:10 }}>{[...tech.jobs].sort((a,b)=>{ if(!a.scheduled_start&&!b.scheduled_start)return 0; if(!a.scheduled_start)return 1; if(!b.scheduled_start)return -1; return new Date(a.scheduled_start)-new Date(b.scheduled_start); }).map(job=>{ const sc=STATUS_CFG[job.status]||STATUS_CFG.scheduled; const timeStr=job.scheduled_start?new Date(job.scheduled_start).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}):null; return <div key={job.id} style={{ background:"var(--surface2)",border:`1px solid ${sc.bd}`,borderLeft:`3px solid ${sc.color}`,borderRadius:8,padding:"10px 12px" }}><div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)" }}>{job.job_number}</span><Chip status={job.status} /></div>{timeStr&&<div style={{ fontSize:11,fontWeight:700,color:sc.color,marginBottom:3 }}>🕐 {timeStr}</div>}<div style={{ fontSize:13,fontWeight:600,marginBottom:3 }}>{job.title}</div><div style={{ fontSize:11,color:"var(--text3)" }}>{job.customer_name}</div></div>; })}</div>:<div style={{ padding:"12px 18px",fontSize:12,color:"var(--text4)",fontStyle:"italic" }}>No jobs scheduled</div>}</Card>))}
+            {dispatchTechs.map(tech=>(<Card key={tech.id} style={{ overflow:"hidden" }}><div style={{ padding:"10px 16px",background:"var(--surface2)",borderBottom:tech.jobs?.length?"1px solid var(--border)":"none",display:"flex",alignItems:"center",gap:10 }}><div style={{ width:32,height:32,borderRadius:"50%",background:"var(--blue-lt)",border:"1px solid var(--blue-bd)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"var(--blue)",flexShrink:0 }}>{tech.name?.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div><span style={{ fontSize:13,fontWeight:600 }}>{tech.name}</span><span style={{ fontSize:11,color:"var(--text3)",marginLeft:4 }}>{tech.jobs?.length||0} job{tech.jobs?.length!==1?"s":""}</span></div>{tech.jobs?.length>0?<div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:8,padding:10 }}>{[...tech.jobs].sort((a,b)=>{ if(!a.scheduled_start&&!b.scheduled_start)return 0; if(!a.scheduled_start)return 1; if(!b.scheduled_start)return -1; return new Date(a.scheduled_start)-new Date(b.scheduled_start); }).map(job=>{ const sc=STATUS_CFG[job.status]||STATUS_CFG.scheduled; const timeStr=job.scheduled_start?new Date(job.scheduled_start).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}):null; return <div key={job.id} style={{ background:"var(--surface2)",border:`1px solid ${sc.bd}`,borderLeft:`3px solid ${sc.color}`,borderRadius:8,padding:"10px 12px" }}><div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)" }}>{job.job_number}</span><Chip status={job.status} /></div>{timeStr&&<div style={{ fontSize:11,fontWeight:700,color:sc.color,marginBottom:3 }}>🕐 {timeStr}</div>}<div style={{ fontSize:13,fontWeight:600,marginBottom:3 }}>{job.title}</div><div style={{ fontSize:11,color:"var(--text3)",marginBottom:8 }}>{job.customer_name}</div><button onClick={()=>setQuickNoteJob(job)} style={{ fontSize:11,background:"var(--surface3)",border:"1px solid var(--border)",borderRadius:6,padding:"3px 10px",cursor:"pointer",color:"var(--text2)",width:"100%" }}>📝 Add Note</button></div>; })}</div>:<div style={{ padding:"12px 18px",fontSize:12,color:"var(--text4)",fontStyle:"italic" }}>No jobs scheduled</div>}</Card>))}
           </>)}
         </div>
       )}
