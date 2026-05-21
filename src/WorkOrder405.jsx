@@ -217,13 +217,55 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
   };
 
   if (submitted && !isReadOnly) {
+    const total = form.totalAmount;
+    const zelleMsg = encodeURIComponent(`Hi ${form.customer||""}! Your total for today's service is $${total||"__"}. You can pay via Zelle to 405-215-7685 (Jayce Dunaway - 405 Heating & Air Conditioning). Thank you!`);
+    const phone = (form.phone||form.cell||"").replace(/\D/g,"");
     return (
-      <div style={{ flex: 1, background: "#f0f4f8", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-        <div style={{ background: "#fff", borderRadius: 16, padding: 48, textAlign: "center", maxWidth: 480, boxShadow: "0 4px 32px #0002" }}>
-          <h2 style={{ fontSize: 22, marginBottom: 12, color: "#1a3a6b" }}>Work Order Submitted</h2>
-          <p style={{ color: "#555", marginBottom: 8 }}>WO# <strong>{form.wo || "—"}</strong></p>
-          <p style={{ color: "#555", marginBottom: 24 }}>Customer: {form.customer || "—"}</p>
-          <button onClick={resetForm} style={{ background: "#1a3a6b", color: "#fff", border: "none", borderRadius: 8, padding: "12px 32px", fontSize: 15, cursor: "pointer", fontWeight: 600 }}>New Work Order</button>
+      <div style={{ flex:1, background:"#0F1320", display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+        <div style={{ background:"#161B2E", border:"1px solid rgba(255,255,255,0.12)", borderRadius:20, padding:"40px 36px", textAlign:"center", maxWidth:440, width:"100%", boxShadow:"0 24px 64px rgba(0,0,0,0.6)" }}>
+          {/* Success icon */}
+          <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(0,196,140,0.15)", border:"2px solid rgba(0,196,140,0.4)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, margin:"0 auto 20px" }}>✓</div>
+          <h2 style={{ fontSize:22, marginBottom:8, color:"#F0F4FF", fontWeight:700, letterSpacing:"-0.02em" }}>Work Order Submitted</h2>
+          <p style={{ color:"#6B7A99", marginBottom:4, fontSize:13 }}>WO# <strong style={{ color:"#A8B4CC" }}>{form.wo||"—"}</strong></p>
+          <p style={{ color:"#6B7A99", marginBottom:4, fontSize:13 }}>Customer: <strong style={{ color:"#A8B4CC" }}>{form.customer||"—"}</strong></p>
+          {total&&<p style={{ fontSize:28, fontWeight:700, color:"#00C48C", fontFamily:"monospace", margin:"16px 0" }}>${total}</p>}
+
+          {/* Payment buttons */}
+          <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:20 }}>
+            {/* Zelle - Send request to customer */}
+            <button onClick={()=>{
+              const zelleMsg = encodeURIComponent(`Hi ${form.customer||""}! Your total for today's service is $${total||"__"}. You can pay via Zelle to 405-215-7685 (Jayce Dunaway - 405 Heating & Air Conditioning). Thank you!`);
+              const phone = (form.phone||form.cell||"").replace(/\D/g,"");
+              if(phone){ window.open(`sms:${phone}?body=${zelleMsg}`); }
+              else { navigator.clipboard.writeText(decodeURIComponent(zelleMsg)).then(()=>alert("Zelle message copied!")).catch(()=>alert(decodeURIComponent(zelleMsg))); }
+            }} style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, background:"linear-gradient(135deg,#6B3FA0,#4B2D7A)", color:"#fff", border:"none", borderRadius:12, padding:"14px 24px", fontSize:15, fontWeight:700, cursor:"pointer", width:"100%" }}>
+              <span style={{ fontSize:20 }}>💜</span> Text Customer Zelle Request
+            </button>
+            {/* Zelle - Open my own Zelle app */}
+            <button onClick={()=>{
+              const amount = parseFloat(total)||0;
+              const fallback = setTimeout(()=>window.open("https://enroll.zellepay.com","_blank"), 1500);
+              window.location.href = `zelle://send?amount=${amount.toFixed(2)}`;
+              window.addEventListener("blur",()=>clearTimeout(fallback),{once:true});
+            }} style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, background:"rgba(107,63,160,0.2)", color:"#B48FE0", border:"1px solid rgba(107,63,160,0.5)", borderRadius:12, padding:"14px 24px", fontSize:15, fontWeight:700, cursor:"pointer", width:"100%" }}>
+              <span style={{ fontSize:20 }}>💜</span> Open My Zelle App
+            </button>
+            {/* Square */}
+            {total&&<button onClick={()=>{
+              const cents=Math.round((parseFloat(total)||0)*100);
+              const squareUrl=`square-commerce-v1://payment/create?data=${encodeURIComponent(JSON.stringify({amount_money:{amount:cents,currency_code:"USD"},callback_url:window.location.href,client_id:"fieldops-405-hvac",version:"1.3",notes:"405 Heating & Air Conditioning"}))}`;
+              const fallback=setTimeout(()=>window.open("https://squareup.com/dashboard/sales","_blank"),1200);
+              window.location.href=squareUrl;
+              window.addEventListener("blur",()=>clearTimeout(fallback),{once:true});
+            }} style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, background:"#006AFF", color:"#fff", border:"none", borderRadius:12, padding:"14px 24px", fontSize:15, fontWeight:700, cursor:"pointer", width:"100%" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="5" fill="#fff"/><rect x="6" y="6" width="12" height="12" rx="2" fill="#006AFF"/></svg>
+              Charge via Square — ${total}
+            </button>}
+          </div>
+
+          <button onClick={resetForm} style={{ background:"rgba(255,255,255,0.06)", color:"#A8B4CC", border:"1px solid rgba(255,255,255,0.12)", borderRadius:10, padding:"11px 28px", fontSize:14, cursor:"pointer", fontWeight:500, width:"100%" }}>
+            + New Work Order
+          </button>
         </div>
       </div>
     );
