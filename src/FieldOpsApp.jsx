@@ -698,7 +698,7 @@ function ScheduleJobModal({ job, onClose, onScheduled }) {
 const TEMPLATES_KEY = "fieldops_job_templates";
 const DEFAULT_TEMPLATES = [
   { id:"t1", name:"AC Tune-Up", icon:"❄️", title:"AC Tune-Up & Inspection", description:"Annual air conditioning tune-up and inspection. Check refrigerant, clean coils, inspect electrical components.", priority:"normal" },
-  { id:"t2", name:"Furnace Check", icon:"🔥", title:"Furnace Inspection & Tune-Up", description:"Annual furnace inspection. Check heat exchanger, burners, igniter, safety controls, and filter.", priority:"normal" },
+  { id:"t2", name:"Heating Tune-Up", icon:"🔥", title:"Heating Tune-Up & Inspection", description:"Annual heating system tune-up and inspection. Check heat exchanger, burners, igniter, safety controls, and filter.", priority:"normal" },
   { id:"t3", name:"AC Not Cooling", icon:"🌡️", title:"AC Not Cooling", description:"Customer reports AC unit is running but not cooling. Check refrigerant charge, airflow, and thermostat.", priority:"high" },
   { id:"t4", name:"No Heat", icon:"🧊", title:"No Heat — Furnace Not Working", description:"Customer has no heat. Diagnose furnace failure — check igniter, gas valve, pressure switches, and control board.", priority:"urgent" },
   { id:"t5", name:"New Install", icon:"🏗️", title:"New System Installation", description:"New HVAC system installation. Includes equipment delivery, installation, startup, and customer walkthrough.", priority:"normal" },
@@ -744,14 +744,11 @@ function NewJobModal({ onClose, onSave }) {
         <div style={{ fontSize:13,color:"var(--text3)",marginBottom:14 }}>Start from a template or create from scratch:</div>
         <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12 }}>
           {templates.map(t=>(
-            <button key={t.id} onClick={()=>applyTemplate(t)} style={{ background:"var(--surface2)",border:"1px solid var(--border2)",borderRadius:10,padding:"12px 14px",cursor:"pointer",textAlign:"left",transition:"all .15s",display:"flex",gap:10,alignItems:"flex-start" }}
+            <button key={t.id} onClick={()=>applyTemplate(t)} style={{ background:"var(--surface2)",border:"1px solid var(--border2)",borderRadius:10,padding:"12px 14px",cursor:"pointer",textAlign:"left",transition:"all .15s",display:"flex",gap:10,alignItems:"center" }}
               onMouseEnter={e=>{e.currentTarget.style.background="var(--surface3)";e.currentTarget.style.borderColor="var(--blue-bd)";}}
               onMouseLeave={e=>{e.currentTarget.style.background="var(--surface2)";e.currentTarget.style.borderColor="var(--border2)";}}>
-              <span style={{ fontSize:20,lineHeight:1,flexShrink:0 }}>{t.icon}</span>
-              <div>
-                <div style={{ fontSize:13,fontWeight:600,color:"var(--text1)",marginBottom:3 }}>{t.name}</div>
-                <div style={{ fontSize:11,color:"var(--text3)",lineHeight:1.4 }}>{t.priority==="urgent"?"🔴 Urgent":t.priority==="high"?"🟡 High":"Normal priority"}</div>
-              </div>
+              <span style={{ fontSize:22,lineHeight:1,flexShrink:0 }}>{t.icon}</span>
+              <span style={{ fontSize:13,fontWeight:600,color:"var(--text1)" }}>{t.name}</span>
             </button>
           ))}
         </div>
