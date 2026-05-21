@@ -328,6 +328,21 @@ function Dashboard() {
 function CustomerDetail({ customer, onBack, onDelete }) {
   const { navigate } = useRouter(); const { setCurrentJob } = useJobContext();
   const [jobs,setJobs]=useState([]); const [notes,setNotes]=useState(customer.notes||""); const [editingNotes,setEditingNotes]=useState(false); const [savingNotes,setSavingNotes]=useState(false); const [loadingJobs,setLoadingJobs]=useState(true); const [tab,setTab]=useState("info"); const [workOrders,setWorkOrders]=useState([]); const [viewWO,setViewWO]=useState(null); const [detailJob,setDetailJob]=useState(null);
+
+  // Build equipment history from work orders
+  const equipment = (() => {
+    const units = {};
+    workOrders.forEach(wo => {
+      (wo.equipment||[]).filter(e=>e.make||e.model||e.serial).forEach(e => {
+        const key = e.serial || `${e.make}-${e.model}-${e.location}`;
+        if(!units[key]) units[key] = { ...e, services:[] };
+        if(wo.complaint||wo.descriptionOfWork||wo.date) {
+          units[key].services.push({ date:wo.date||wo.savedAt, complaint:wo.complaint, work:wo.descriptionOfWork, wo:wo.wo, tech:wo.technician, total:wo.totalAmount });
+        }
+      });
+    });
+    return Object.values(units).sort((a,b)=>(b.services.length)-(a.services.length));
+  })();
   useEffect(()=>{ apiFetch(`/customers/${customer.id}/jobs`).then(d=>setJobs(Array.isArray(d)?d:[])).catch(()=>setJobs([])).finally(()=>setLoadingJobs(false)); const name=`${customer.first_name} ${customer.last_name}`; fetchWorkOrders(`&customer_id=${customer.id}`).then(all=>{const matched=all.filter(w=>w.customerId===customer.id||w.customer===name);setWorkOrders(matched);}); },[customer.id]);
   async function saveNotes(){setSavingNotes(true);try{await apiFetch(`/customers/${customer.id}`,{method:"PATCH",body:JSON.stringify({notes})});setEditingNotes(false);}catch(e){alert(e.message);}setSavingNotes(false);}
   const tabStyle=t=>({flex:1,padding:"10px 0",background:"none",border:"none",borderBottom:tab===t?"2px solid var(--blue)":"2px solid transparent",color:tab===t?"var(--blue)":"var(--text3)",fontSize:13,fontWeight:tab===t?700:400,cursor:"pointer",transition:"all .15s"});
@@ -359,6 +374,7 @@ function CustomerDetail({ customer, onBack, onDelete }) {
           <button style={tabStyle("info")} onClick={()=>setTab("info")}>Info</button>
           <button style={tabStyle("notes")} onClick={()=>setTab("notes")}>📋 Notes</button>
           <button style={tabStyle("jobs")} onClick={()=>setTab("jobs")}>Jobs ({jobs.length})</button>
+          <button style={tabStyle("equipment")} onClick={()=>setTab("equipment")}>🔩 Equipment ({equipment.length})</button>
           <button style={tabStyle("workorders")} onClick={()=>setTab("workorders")}>Work Orders ({workOrders.length})</button>
         </div>
       </div>
@@ -367,6 +383,53 @@ function CustomerDetail({ customer, onBack, onDelete }) {
         {tab==="notes"&&(<div style={{ display:"flex",flexDirection:"column",gap:12 }}><Card style={{ padding:"14px 16px" }}><div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12 }}><div><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"var(--display)" }}>Internal Notes</div><div style={{ fontSize:11,color:"var(--text3)",marginTop:2 }}>Visible to all techs</div></div>{!editingNotes&&<Btn small variant="secondary" onClick={()=>setEditingNotes(true)}>Edit</Btn>}</div>{editingNotes?(<><textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Gate code, dogs, access notes..." style={{ ...inputStyle,height:180,resize:"vertical",marginBottom:10 }} autoFocus /><div style={{ display:"flex",gap:8 }}><Btn small onClick={saveNotes} disabled={savingNotes}>{savingNotes?"Saving…":"Save Notes"}</Btn><Btn small variant="secondary" onClick={()=>{setEditingNotes(false);setNotes(customer.notes||"");}}>Cancel</Btn></div></>):notes?<p style={{ fontSize:14,color:"var(--text1)",lineHeight:1.7,whiteSpace:"pre-wrap" }}>{notes}</p>:<div style={{ fontSize:13,color:"var(--text4)",fontStyle:"italic",padding:"8px 0" }}>No notes yet.</div>}</Card></div>)}
         {tab==="jobs"&&(<div style={{ display:"flex",flexDirection:"column",gap:10 }}>{loadingJobs?<Spinner />:jobs.length===0?<EmptyState icon="🔧" title="No jobs yet" desc="No jobs found for this customer" />:jobs.map(job=>(<Card key={job.id} style={{ padding:"14px 16px" }}><div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6 }}><div><div style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:3 }}>{job.job_number}</div><div style={{ fontSize:15,fontWeight:700 }}>{job.title}</div></div><Chip status={job.status} /></div><div style={{ fontSize:12,color:"var(--text3)",marginBottom:10 }}>{job.scheduled_start?fmtDate(job.scheduled_start):"Not scheduled"}</div><div style={{ display:"flex",gap:6,flexWrap:"wrap" }}><Btn small variant="secondary" onClick={()=>setDetailJob(job)}>📝 Notes & Photos</Btn><Btn small variant="secondary" onClick={()=>{ setCurrentJob({customer:`${customer.first_name} ${customer.last_name}`,customerId:customer.id,phone:customer.phone||"",cell:"",email:customer.email||"",billingAddress:job.address_line1?`${job.address_line1}, ${job.city}, ${job.state} ${job.zip||""}`.trim():`${job.city||""}, ${job.state||""}`.trim(),complaint:job.title||"",workedBy:"",unitAddress:""}); navigate("/workorder"); }}>📋 Work Order</Btn></div></Card>))}</div>)}
         {tab==="workorders"&&(<div style={{ display:"flex",flexDirection:"column",gap:10 }}>{workOrders.length===0?<EmptyState icon="📋" title="No work orders yet" desc="Work orders created for this customer will appear here" />:workOrders.map(wo=>(<Card key={wo.id} style={{ padding:"14px 16px",cursor:"pointer" }} onClick={()=>setViewWO(wo)}><div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4 }}><div><div style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:2 }}>WO# {wo.wo||"—"}</div><div style={{ fontSize:14,fontWeight:600 }}>{wo.complaint||"Work Order"}</div></div><div style={{ fontSize:16,fontFamily:"var(--mono)",fontWeight:700,color:"var(--green)" }}>{wo.totalAmount?`$${wo.totalAmount}`:"—"}</div></div><div style={{ fontSize:12,color:"var(--text3)" }}>{wo.date||"No date"} · {wo.technician||"No tech assigned"}</div></Card>))}</div>)}
+        {tab==="equipment"&&(
+          <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
+            {equipment.length===0?(
+              <EmptyState icon="🔩" title="No equipment on file" desc="Equipment is pulled from submitted work orders. Complete a work order for this customer with unit details to see history here." />
+            ):equipment.map((unit,i)=>(
+              <Card key={i} style={{ overflow:"hidden" }}>
+                {/* Unit header */}
+                <div style={{ padding:"14px 16px",background:"var(--surface2)",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"flex-start" }}>
+                  <div>
+                    <div style={{ fontSize:15,fontWeight:700,fontFamily:"var(--display)",marginBottom:4 }}>
+                      {[unit.make,unit.model].filter(Boolean).join(" ") || "Unknown Unit"}
+                    </div>
+                    <div style={{ display:"flex",gap:10,flexWrap:"wrap" }}>
+                      {unit.serial&&<span style={{ fontSize:11,fontFamily:"var(--mono)",background:"var(--surface3)",border:"1px solid var(--border2)",borderRadius:4,padding:"2px 8px",color:"var(--text2)" }}>S/N: {unit.serial}</span>}
+                      {unit.location&&<span style={{ fontSize:11,color:"var(--text3)" }}>📍 {unit.location}</span>}
+                      {unit.area&&<span style={{ fontSize:11,color:"var(--text3)" }}>🏠 {unit.area}</span>}
+                    </div>
+                  </div>
+                  <div style={{ textAlign:"right",flexShrink:0 }}>
+                    <div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>Service calls</div>
+                    <div style={{ fontSize:22,fontFamily:"var(--mono)",fontWeight:700,color:"var(--blue)" }}>{unit.services.length}</div>
+                  </div>
+                </div>
+                {/* Service history */}
+                {unit.services.length>0&&(
+                  <div style={{ padding:"10px 16px",display:"flex",flexDirection:"column",gap:8 }}>
+                    <div style={{ fontSize:10,fontWeight:700,color:"var(--text4)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2 }}>Service History</div>
+                    {unit.services.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0)).map((svc,j)=>(
+                      <div key={j} style={{ background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"10px 12px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12 }}>
+                        <div style={{ flex:1,minWidth:0 }}>
+                          <div style={{ fontSize:13,fontWeight:600,marginBottom:3 }}>{svc.complaint||svc.work||"Service"}</div>
+                          {svc.work&&svc.complaint&&<div style={{ fontSize:12,color:"var(--text3)",marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{svc.work}</div>}
+                          <div style={{ display:"flex",gap:10,fontSize:11,color:"var(--text3)",flexWrap:"wrap" }}>
+                            {svc.date&&<span>📅 {fmtDate(svc.date)}</span>}
+                            {svc.tech&&<span>👷 {svc.tech}</span>}
+                            {svc.wo&&<span style={{ fontFamily:"var(--mono)" }}>WO#{svc.wo}</span>}
+                          </div>
+                        </div>
+                        {svc.total&&<div style={{ fontSize:14,fontFamily:"var(--mono)",fontWeight:700,color:"var(--green)",flexShrink:0 }}>${svc.total}</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
