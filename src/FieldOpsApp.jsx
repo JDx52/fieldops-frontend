@@ -1185,12 +1185,6 @@ function PaymentPanel({ wo, pmt, onUpdate }) {
     </Card>
   );
 }
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ status: pmt.status||"unpaid", method: pmt.method||"", amountPaid: pmt.amountPaid||"", note: pmt.note||"", paidDate: pmt.paidDate||new Date().toISOString().slice(0,10) });
-  const METHODS = ["Cash","Check","Card","Zelle","Venmo","CashApp","ACH","Other"];
-  const total = parseFloat(wo.totalAmount)||0;
-  const paid = parseFloat(form.amountPaid)||0;
-  const remaining = Math.max(0, total - paid);
 
 // ── JOB DETAIL MODAL ──
 function JobDetailModal({ job, onClose }) {
