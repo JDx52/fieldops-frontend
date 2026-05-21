@@ -1439,11 +1439,15 @@ function ReportsScreen() {
   const statusCounts={};jobs.forEach(j=>{statusCounts[j.status]=(statusCounts[j.status]||0)+1;});
   const statusColors={completed:"#10B981",scheduled:"#3B82F6",pending:"#F59E0B",cancelled:"#EF4444","in-progress":"#8B5CF6"};
 
-  // Payment breakdown using localStorage payments
+  // Payment breakdown - check both by ID and by WO number
   const payments = loadPayments();
-  const cashWOs = workOrders.filter(wo=>{ const p=payments[wo.id]; return p?.method==="Cash"; });
-  const checkWOs = workOrders.filter(wo=>{ const p=payments[wo.id]; return p?.method==="Check"; });
-  const squareWOs = workOrders.filter(wo=>{ const p=payments[wo.id]; return p?.method==="Square" || wo.paymentMethod==="Square"; });
+  function getPaymentForWO(wo) {
+    // Try by id first, then by wo_number/wo
+    return payments[wo.id] || payments[wo.wo_number] || payments[wo.wo] || null;
+  }
+  const cashWOs = workOrders.filter(wo=>{ const p=getPaymentForWO(wo); return p?.method==="Cash" || wo.paymentMethod==="Cash"; });
+  const checkWOs = workOrders.filter(wo=>{ const p=getPaymentForWO(wo); return p?.method==="Check" || wo.paymentMethod==="Check"; });
+  const squareWOs = workOrders.filter(wo=>{ const p=getPaymentForWO(wo); return p?.method==="Square" || wo.paymentMethod==="Square"; });
 
   const filteredWOs = paymentFilter==="Cash"?cashWOs:paymentFilter==="Check"?checkWOs:paymentFilter==="Square"?squareWOs:[];
 
@@ -1487,7 +1491,7 @@ function ReportsScreen() {
                       <div key={wo.id} style={{ background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
                         <div>
                           <div style={{ fontSize:13,fontWeight:600 }}>{wo.customer||wo.customer_name||"—"}</div>
-                          <div style={{ fontSize:11,color:"var(--text3)" }}>WO#{wo.wo_number||wo.wo||"—"} · {wo.date||fmtDate(wo.created_at)||"—"}{payments[wo.id]?.checkNumber?` · Check #${payments[wo.id].checkNumber}`:""}</div>
+                          <div style={{ fontSize:11,color:"var(--text3)" }}>WO#{wo.wo_number||wo.wo||"—"} · {wo.date||fmtDate(wo.created_at)||"—"}{getPaymentForWO(wo)?.checkNumber?` · Check #${getPaymentForWO(wo).checkNumber}`:wo.checkNumber?` · Check #${wo.checkNumber}`:""}</div>
                         </div>
                         <div style={{ fontSize:15,fontFamily:"var(--mono)",fontWeight:700,color:"var(--green)" }}>{fmt$(parseFloat(wo.total_amount||wo.totalAmount)||0)}</div>
                       </div>
@@ -1728,7 +1732,16 @@ function AppShell() {
     "/jobs": <JobsScreen />,
     "/team": <TeamScreen />,
     "/workorder": <WorkOrder405 prefill={currentJob} onSave={async wo=>{
-      await saveWorkOrder({...wo,customerId:currentJob?.customerId});
+      const saved = await saveWorkOrder({...wo,customerId:currentJob?.customerId});
+      // Write payment method to payments store using the real server ID
+      if(wo.paymentMethod && saved) {
+        try {
+          const realId = saved.id || saved.wo || wo.wo;
+          const p = loadPayments();
+          p[realId] = { status:"paid", method:wo.paymentMethod, amountPaid:wo.totalAmount, checkNumber:wo.checkNumber||"", paidDate:new Date().toISOString().slice(0,10), updatedAt:new Date().toISOString() };
+          localStorage.setItem(PAYMENTS_KEY, JSON.stringify(p));
+        } catch(e){ console.error("Payment save failed:",e); }
+      }
       const jobId = wo.jobId||currentJob?.jobId;
       if(jobId){
         try {
