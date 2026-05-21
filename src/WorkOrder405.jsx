@@ -154,6 +154,8 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
     complaint: savedData?.complaint || prefill?.complaint || "", workedBy: savedData?.workedBy || prefill?.workedBy || "",
     unitAddress: savedData?.unitAddress || prefill?.unitAddress || prefill?.billingAddress || "",
     unitPhone: savedData?.unitPhone || "", unitCell: savedData?.unitCell || "",
+    jobId: prefill?.jobId || savedData?.jobId || "",
+    customerId: prefill?.customerId || savedData?.customerId || "",
     jobTypes: savedData?.jobTypes || [],
     equipment: savedData?.equipment || [{ make: "", model: "", serial: "", location: "", area: "" }],
     technician: savedData?.technician || "", timeIn: savedData?.timeIn || "8:00 AM", timeOut: savedData?.timeOut || "",
@@ -173,7 +175,7 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
   useEffect(() => { if (!isReadOnly && !savedData?.wo) { generateWO().then(wo => setForm(p => ({ ...p, wo }))); } }, []);
   useEffect(() => {
     if (prefill && !readOnly) {
-      setForm(p => ({ ...p, customer: prefill.customer || "", billingAddress: prefill.billingAddress || "", phone: prefill.phone || "", cell: prefill.cell || "", email: prefill.email || "", complaint: prefill.complaint || "", workedBy: prefill.workedBy || "", unitAddress: prefill.unitAddress || prefill.billingAddress || "" }));
+      setForm(p => ({ ...p, customer: prefill.customer || "", billingAddress: prefill.billingAddress || "", phone: prefill.phone || "", cell: prefill.cell || "", email: prefill.email || "", complaint: prefill.complaint || "", workedBy: prefill.workedBy || "", unitAddress: prefill.unitAddress || prefill.billingAddress || "", jobId: prefill.jobId || p.jobId || "", customerId: prefill.customerId || p.customerId || "" }));
     }
   }, [prefill]);
 
@@ -475,11 +477,6 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
               <button onClick={async () => {
                 const wo = { ...form, savedAt: new Date().toISOString() };
                 if (onSave) await onSave(wo);
-                if (wo.jobId) {
-                  const API = process.env.REACT_APP_API_URL || "https://fieldops-api-production-b341.up.railway.app/v1";
-                  const token = localStorage.getItem("fieldops_token");
-                  fetch(`${API}/jobs/${wo.jobId}/status`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ status: "completed" }) }).catch(() => {});
-                }
                 setSubmitted(true);
               }} style={{ background: "#1a3a6b", color: "#fff", border: "none", borderRadius: 10, padding: "14px 48px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
                 Submit Work Order
