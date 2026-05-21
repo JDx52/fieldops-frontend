@@ -983,6 +983,7 @@ function InvoicesScreen() {
             <Btn small variant="secondary" onClick={()=>printWorkOrder(selected)}>🖨️ Print</Btn>
             <Btn small variant="secondary" onClick={()=>{ const email=selected.email||prompt("Enter customer email:"); if(!email)return; const sub=encodeURIComponent(`Work Order ${selected.wo||""} - 405 Heating & Air`); const bod=encodeURIComponent(`Hello ${selected.customer||""},\n\nWork Order #: ${selected.wo||"—"}\nDate: ${selected.date||"—"}\nTotal Due: ${selected.totalAmount?"$"+selected.totalAmount:"—"}\n\nThank you for choosing 405 Heating & Air.\n405-215-7685`); window.open(`mailto:${email}?subject=${sub}&body=${bod}`); }}>✉️ Email</Btn>
             <Btn small variant="secondary" onClick={()=>printInvoice(selected)}>🧾 Invoice</Btn>
+            {selected.totalAmount&&<SquareBtn amount={selected.totalAmount} small />}
             <Btn small variant="danger" onClick={()=>deleteWO(selected.id)}>Delete</Btn>
           </div>
         </div>
@@ -1074,6 +1075,39 @@ function InvoicesScreen() {
   );
 }
 
+// ── SQUARE HELPER ──
+function openSquare(amount) {
+  const cents = Math.round((parseFloat(amount)||0) * 100);
+  // Square Point of Sale deep link — opens Square POS app with amount pre-filled
+  // Works on iOS and Android with Square app installed
+  const callbackUrl = encodeURIComponent(window.location.href);
+  const squareUrl = `square-commerce-v1://payment/create?data=${encodeURIComponent(JSON.stringify({
+    amount_money: { amount: cents, currency_code: "USD" },
+    callback_url: decodeURIComponent(callbackUrl),
+    client_id: "fieldops-405-hvac",
+    version: "1.3",
+    notes: "405 Heating & Air Conditioning",
+  }))}`;
+  // Try deep link first; if Square isn't installed, fall back to Square web dashboard
+  const fallback = setTimeout(() => {
+    window.open("https://squareup.com/dashboard/sales", "_blank");
+  }, 1200);
+  window.location.href = squareUrl;
+  // Clear fallback if app opened
+  window.addEventListener("blur", () => clearTimeout(fallback), { once: true });
+}
+
+function SquareBtn({ amount, small }) {
+  return (
+    <button onClick={()=>openSquare(amount)} style={{ display:"inline-flex",alignItems:"center",gap:7,background:"#006AFF",color:"#fff",border:"none",borderRadius:8,padding:small?"5px 12px":"9px 16px",fontSize:small?12:13,fontWeight:600,cursor:"pointer",transition:"filter .15s",fontFamily:"var(--sans)" }}
+      onMouseEnter={e=>e.currentTarget.style.filter="brightness(1.1)"}
+      onMouseLeave={e=>e.currentTarget.style.filter=""}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="5" fill="#fff"/><rect x="6" y="6" width="12" height="12" rx="2" fill="#006AFF"/></svg>
+      {amount?`Charge $${parseFloat(amount).toFixed(2)} via Square`:"Charge via Square"}
+    </button>
+  );
+}
+
 function PaymentPanel({ wo, pmt, onUpdate }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ status: pmt.status||"unpaid", method: pmt.method||"", amountPaid: pmt.amountPaid||"", note: pmt.note||"", paidDate: pmt.paidDate||new Date().toISOString().slice(0,10) });
@@ -1084,7 +1118,6 @@ function PaymentPanel({ wo, pmt, onUpdate }) {
 
   function handleSave() {
     const data = { ...form, amountPaid: form.amountPaid, updatedAt: new Date().toISOString() };
-    // Auto-set status based on amount
     if(form.status==="partial" && paid >= total && total > 0) data.status = "paid";
     savePayment(wo.id, data);
     setEditing(false);
@@ -1106,22 +1139,25 @@ function PaymentPanel({ wo, pmt, onUpdate }) {
   }
 
   const pmtStatus = pmt.status||"unpaid";
+  const statusColor = { paid:"var(--green)", unpaid:"var(--red)", partial:"var(--amber)" };
+  const statusBg = { paid:"var(--green-lt)", unpaid:"var(--red-lt)", partial:"var(--amber-lt)" };
+  const statusBd = { paid:"var(--green-bd)", unpaid:"var(--red-bd)", partial:"var(--amber-bd)" };
 
   return (
-    <Card style={{ padding:"16px 18px",border:`1px solid ${pmtStatus==="paid"?"var(--green-bd)":pmtStatus==="partial"?"var(--amber-bd)":"var(--red-bd)"}`,background:pmtStatus==="paid"?"rgba(0,196,140,0.05)":pmtStatus==="partial"?"rgba(245,158,11,0.05)":"rgba(255,77,77,0.05)" }}>
-      <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:editing?16:0 }}>
+    <Card style={{ padding:"16px 18px",border:`1px solid ${statusBd[pmtStatus]}`,background:`${statusBg[pmtStatus]}` }}>
+      <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:editing?16:0,flexWrap:"wrap",gap:8 }}>
         <div style={{ fontSize:13,fontWeight:700,fontFamily:"var(--display)" }}>
           {pmtStatus==="paid"?"✅ Payment Received":pmtStatus==="partial"?"◐ Partial Payment":"💳 Payment"}
         </div>
         {!editing&&(
-          <div style={{ display:"flex",gap:8 }}>
+          <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
             {pmtStatus!=="paid"&&<Btn small onClick={markPaid}>✓ Mark Paid</Btn>}
+            {pmtStatus!=="paid"&&wo.totalAmount&&<SquareBtn amount={wo.totalAmount} small />}
             {pmtStatus==="paid"&&<Btn small variant="secondary" onClick={markUnpaid}>Mark Unpaid</Btn>}
             <Btn small variant="secondary" onClick={()=>setEditing(true)}>Edit</Btn>
           </div>
         )}
       </div>
-
       {!editing&&pmtStatus!=="unpaid"&&(
         <div style={{ display:"flex",gap:16,flexWrap:"wrap",marginTop:10 }}>
           {pmt.amountPaid&&<div><div style={{ fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2 }}>Amount Paid</div><div style={{ fontSize:16,fontFamily:"var(--mono)",fontWeight:700,color:"var(--green)" }}>${pmt.amountPaid}</div></div>}
@@ -1131,33 +1167,15 @@ function PaymentPanel({ wo, pmt, onUpdate }) {
           {pmt.note&&<div style={{ width:"100%" }}><div style={{ fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2 }}>Note</div><div style={{ fontSize:13,color:"var(--text2)" }}>{pmt.note}</div></div>}
         </div>
       )}
-
       {editing&&(
         <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
           <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
-            <FormField label="Status">
-              <select style={inputStyle} value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))}>
-                <option value="unpaid">Unpaid</option>
-                <option value="partial">Partial Payment</option>
-                <option value="paid">Paid in Full</option>
-              </select>
-            </FormField>
-            <FormField label="Payment Method">
-              <select style={inputStyle} value={form.method} onChange={e=>setForm(p=>({...p,method:e.target.value}))}>
-                <option value="">Select…</option>
-                {METHODS.map(m=><option key={m}>{m}</option>)}
-              </select>
-            </FormField>
-            <FormField label="Amount Paid">
-              <input style={inputStyle} type="number" min="0" step="0.01" value={form.amountPaid} onChange={e=>setForm(p=>({...p,amountPaid:e.target.value}))} placeholder={wo.totalAmount||"0.00"} />
-            </FormField>
-            <FormField label="Date Paid">
-              <input style={inputStyle} type="date" value={form.paidDate} onChange={e=>setForm(p=>({...p,paidDate:e.target.value}))} />
-            </FormField>
+            <FormField label="Status"><select style={inputStyle} value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))}><option value="unpaid">Unpaid</option><option value="partial">Partial Payment</option><option value="paid">Paid in Full</option></select></FormField>
+            <FormField label="Payment Method"><select style={inputStyle} value={form.method} onChange={e=>setForm(p=>({...p,method:e.target.value}))}><option value="">Select…</option>{METHODS.map(m=><option key={m}>{m}</option>)}</select></FormField>
+            <FormField label="Amount Paid"><input style={inputStyle} type="number" min="0" step="0.01" value={form.amountPaid} onChange={e=>setForm(p=>({...p,amountPaid:e.target.value}))} placeholder={wo.totalAmount||"0.00"} /></FormField>
+            <FormField label="Date Paid"><input style={inputStyle} type="date" value={form.paidDate} onChange={e=>setForm(p=>({...p,paidDate:e.target.value}))} /></FormField>
           </div>
-          <FormField label="Note (optional)">
-            <input style={inputStyle} value={form.note} onChange={e=>setForm(p=>({...p,note:e.target.value}))} placeholder="e.g. Check #1042" />
-          </FormField>
+          <FormField label="Note (optional)"><input style={inputStyle} value={form.note} onChange={e=>setForm(p=>({...p,note:e.target.value}))} placeholder="e.g. Check #1042" /></FormField>
           <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
             <Btn small variant="secondary" onClick={()=>setEditing(false)}>Cancel</Btn>
             <Btn small onClick={handleSave}>Save Payment</Btn>
@@ -1167,6 +1185,12 @@ function PaymentPanel({ wo, pmt, onUpdate }) {
     </Card>
   );
 }
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ status: pmt.status||"unpaid", method: pmt.method||"", amountPaid: pmt.amountPaid||"", note: pmt.note||"", paidDate: pmt.paidDate||new Date().toISOString().slice(0,10) });
+  const METHODS = ["Cash","Check","Card","Zelle","Venmo","CashApp","ACH","Other"];
+  const total = parseFloat(wo.totalAmount)||0;
+  const paid = parseFloat(form.amountPaid)||0;
+  const remaining = Math.max(0, total - paid);
 
 // ── JOB DETAIL MODAL ──
 function JobDetailModal({ job, onClose }) {
