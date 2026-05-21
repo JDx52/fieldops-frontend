@@ -81,18 +81,18 @@ function PricebookPicker({ onClose, onSelect }) {
   const [search, setSearch] = useState("");
   const [cat, setCat] = useState("all");
   const filtered = allItems.filter(i => cat === "all" || i.category === cat).filter(i => !search || i.name.toLowerCase().includes(search.toLowerCase()));
-  const inp = { width: "100%", padding: "8px 12px", borderRadius: 7, fontSize: 13, border: "1px solid #E4E8EF", outline: "none", fontFamily: "inherit", boxSizing: "border-box" };
+  const inp = { width: "100%", padding: "8px 12px", borderRadius: 7, fontSize: 13, border: "1px solid rgba(255,255,255,0.12)", outline: "none", fontFamily: "inherit", boxSizing: "border-box", background: "rgba(255,255,255,0.06)", color: "#F0F4FF" };
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#00000070", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 540, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px #00000040" }}>
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid #E4E8EF", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div><div style={{ fontSize: 17, fontWeight: 700 }}>Pricebook</div><div style={{ fontSize: 12, color: "#8A94A6", marginTop: 2 }}>Tap an item to add it to materials</div></div>
-          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, color: "#8A94A6", cursor: "pointer" }}>×</button>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: "#161B2E", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, width: "100%", maxWidth: 540, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(0,0,0,0.7)" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div><div style={{ fontSize: 17, fontWeight: 700, color: "#F0F4FF" }}>Pricebook</div><div style={{ fontSize: 12, color: "#6B7A99", marginTop: 2 }}>Tap an item to add it to materials</div></div>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", width: 28, height: 28, borderRadius: 6, fontSize: 16, color: "#A8B4CC", cursor: "pointer" }}>×</button>
         </div>
-        <div style={{ padding: "12px 20px", borderBottom: "1px solid #E4E8EF", display: "flex", gap: 8 }}>
+        <div style={{ padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", gap: 8 }}>
           <div style={{ position: "relative", flex: 1 }}>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" style={{ ...inp, paddingLeft: 26 }} autoFocus />
-            <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "#8A94A6", fontSize: 13 }}>⌕</span>
+            <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "#6B7A99", fontSize: 13 }}>⌕</span>
           </div>
           <select value={cat} onChange={e => setCat(e.target.value)} style={{ ...inp, width: "auto" }}>
             <option value="all">All</option>
@@ -101,15 +101,15 @@ function PricebookPicker({ onClose, onSelect }) {
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
           {allItems.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px 20px", color: "#8A94A6" }}><div style={{ fontSize: 36, marginBottom: 10 }}>📋</div><div style={{ fontWeight: 700, marginBottom: 6 }}>Pricebook is empty</div><div style={{ fontSize: 13 }}>Add items in the Pricebook screen first</div></div>
+            <div style={{ textAlign: "center", padding: "40px 20px", color: "#6B7A99" }}><div style={{ fontSize: 36, marginBottom: 10 }}>📋</div><div style={{ fontWeight: 700, marginBottom: 6, color: "#F0F4FF" }}>Pricebook is empty</div><div style={{ fontSize: 13 }}>Add items in the Pricebook screen first</div></div>
           ) : filtered.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px 20px", color: "#8A94A6", fontSize: 13 }}>No items match your search</div>
+            <div style={{ textAlign: "center", padding: "40px 20px", color: "#6B7A99", fontSize: 13 }}>No items match your search</div>
           ) : filtered.map(item => (
             <div key={item.id} onClick={() => onSelect(item)}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "11px 20px", cursor: "pointer", borderBottom: "1px solid #F1F3F7", transition: "background .1s" }}
-              onMouseEnter={e => e.currentTarget.style.background = "#F8F9FB"} onMouseLeave={e => e.currentTarget.style.background = ""}>
-              <div><div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{item.name}</div><div style={{ fontSize: 11, color: "#8A94A6" }}>{item.category}{item.description ? ` · ${item.description}` : ""}</div></div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#0D7B4E", flexShrink: 0, marginLeft: 16 }}>${parseFloat(item.price).toFixed(2)}</div>
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "11px 20px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.06)", transition: "background .1s" }}
+              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"} onMouseLeave={e => e.currentTarget.style.background = ""}>
+              <div><div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2, color: "#F0F4FF" }}>{item.name}</div><div style={{ fontSize: 11, color: "#6B7A99" }}>{item.category}{item.description ? ` · ${item.description}` : ""}</div></div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#00C48C", flexShrink: 0, marginLeft: 16 }}>${parseFloat(item.price).toFixed(2)}</div>
             </div>
           ))}
         </div>
