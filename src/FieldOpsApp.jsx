@@ -1427,7 +1427,9 @@ const MOBILE_NAV = [
 ];
 
 function ReportsScreen() {
+  const { navigate } = useRouter();
   const [jobs,setJobs]=useState([]); const [workOrders,setWorkOrders]=useState([]); const [loading,setLoading]=useState(true);
+  const [paymentFilter,setPaymentFilter]=useState(null); // null | 'Cash' | 'Check' | 'Square'
   useEffect(()=>{ async function load(){try{const [j,wo]=await Promise.all([apiFetch("/jobs?limit=500").catch(()=>[]),apiFetch("/work-orders?limit=500").catch(()=>({data:[]}))]); setJobs(Array.isArray(j)?j:[]); setWorkOrders(Array.isArray(wo)?wo:Array.isArray(wo?.data)?wo.data:[]);} catch(e){console.error(e);} setLoading(false);} load();},[]);
   const months=[];
   for(let i=5;i>=0;i--){const d=new Date();d.setMonth(d.getMonth()-i);months.push({label:d.toLocaleString("default",{month:"short",year:"2-digit"}),month:d.getMonth(),year:d.getFullYear(),revenue:0,count:0});}
@@ -1436,6 +1438,15 @@ function ReportsScreen() {
   const fmt$=v=>"$"+Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
   const statusCounts={};jobs.forEach(j=>{statusCounts[j.status]=(statusCounts[j.status]||0)+1;});
   const statusColors={completed:"#10B981",scheduled:"#3B82F6",pending:"#F59E0B",cancelled:"#EF4444","in-progress":"#8B5CF6"};
+
+  // Payment breakdown using localStorage payments
+  const payments = loadPayments();
+  const cashWOs = workOrders.filter(wo=>{ const p=payments[wo.id]; return p?.method==="Cash"; });
+  const checkWOs = workOrders.filter(wo=>{ const p=payments[wo.id]; return p?.method==="Check"; });
+  const squareWOs = workOrders.filter(wo=>{ const p=payments[wo.id]; return p?.method==="Square" || wo.paymentMethod==="Square"; });
+
+  const filteredWOs = paymentFilter==="Cash"?cashWOs:paymentFilter==="Check"?checkWOs:paymentFilter==="Square"?squareWOs:[];
+
   return (
     <div style={{ flex:1,overflowY:"auto",padding:24,background:"var(--bg)" }}>
       <div style={{ maxWidth:900,margin:"0 auto" }}>
@@ -1446,6 +1457,47 @@ function ReportsScreen() {
               <div key={c.label} style={{ background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:"20px 24px" }}><div style={{ fontSize:11,color:"var(--text3)",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8 }}>{c.label}</div><div style={{ fontSize:28,fontWeight:800,color:c.color }}>{c.val}</div></div>
             ))}
           </div>
+
+          {/* Payment Method Breakdown */}
+          <div style={{ background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:24,marginBottom:24 }}>
+            <div style={{ fontSize:15,fontWeight:700,marginBottom:16 }}>Payments by Method</div>
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:paymentFilter?16:0 }}>
+              {[
+                {key:"Cash",icon:"💵",count:cashWOs.length,total:cashWOs.reduce((s,w)=>s+(parseFloat(w.total_amount||w.totalAmount)||0),0),color:"#10B981"},
+                {key:"Check",icon:"📝",count:checkWOs.length,total:checkWOs.reduce((s,w)=>s+(parseFloat(w.total_amount||w.totalAmount)||0),0),color:"#3B82F6"},
+                {key:"Square",icon:"🟦",count:squareWOs.length,total:squareWOs.reduce((s,w)=>s+(parseFloat(w.total_amount||w.totalAmount)||0),0),color:"#7C3AED"},
+              ].map(m=>(
+                <button key={m.key} onClick={()=>setPaymentFilter(p=>p===m.key?null:m.key)} style={{ background:paymentFilter===m.key?"var(--surface3)":"var(--surface2)",border:`1px solid ${paymentFilter===m.key?"var(--border2)":"var(--border)"}`,borderRadius:10,padding:"14px",textAlign:"left",cursor:"pointer",transition:"all .15s" }}>
+                  <div style={{ fontSize:20,marginBottom:8 }}>{m.icon}</div>
+                  <div style={{ fontSize:13,fontWeight:700,color:"var(--text1)",marginBottom:2 }}>{m.key}</div>
+                  <div style={{ fontSize:11,color:"var(--text3)",marginBottom:6 }}>{m.count} work order{m.count!==1?"s":""}</div>
+                  <div style={{ fontSize:16,fontFamily:"var(--mono)",fontWeight:700,color:m.color }}>{fmt$(m.total)}</div>
+                </button>
+              ))}
+            </div>
+            {paymentFilter&&(
+              <div style={{ borderTop:"1px solid var(--border)",paddingTop:16 }}>
+                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
+                  <div style={{ fontSize:13,fontWeight:600 }}>{paymentFilter} Payments ({filteredWOs.length})</div>
+                  <button onClick={()=>setPaymentFilter(null)} style={{ fontSize:11,background:"none",border:"none",color:"var(--text3)",cursor:"pointer" }}>✕ Clear</button>
+                </div>
+                {filteredWOs.length===0?<div style={{ fontSize:13,color:"var(--text3)",fontStyle:"italic" }}>No {paymentFilter} payments recorded yet.</div>:
+                  <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
+                    {filteredWOs.map(wo=>(
+                      <div key={wo.id} style={{ background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                        <div>
+                          <div style={{ fontSize:13,fontWeight:600 }}>{wo.customer||wo.customer_name||"—"}</div>
+                          <div style={{ fontSize:11,color:"var(--text3)" }}>WO#{wo.wo_number||wo.wo||"—"} · {wo.date||fmtDate(wo.created_at)||"—"}{payments[wo.id]?.checkNumber?` · Check #${payments[wo.id].checkNumber}`:""}</div>
+                        </div>
+                        <div style={{ fontSize:15,fontFamily:"var(--mono)",fontWeight:700,color:"var(--green)" }}>{fmt$(parseFloat(wo.total_amount||wo.totalAmount)||0)}</div>
+                      </div>
+                    ))}
+                  </div>
+                }
+              </div>
+            )}
+          </div>
+
           <div style={{ background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:24,marginBottom:24 }}>
             <div style={{ fontSize:15,fontWeight:700,marginBottom:20 }}>Revenue by Month</div>
             <div style={{ display:"flex",alignItems:"flex-end",gap:12,height:180 }}>

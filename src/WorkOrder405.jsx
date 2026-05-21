@@ -183,6 +183,7 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
 
   const [submitted, setSubmitted] = useState(false);
   const [showPricebook, setShowPricebook] = useState(false);
+  const [woDiscount, setWoDiscount] = useState(false);
 
   function set(key, val) { setForm(p => ({ ...p, [key]: val })); }
   function toggleJobType(t) { set("jobTypes", form.jobTypes.includes(t) ? form.jobTypes.filter(x => x !== t) : [...form.jobTypes, t]); }
@@ -220,11 +221,12 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
 
   if (submitted && !isReadOnly) {
     const total = form.totalAmount;
-    const zelleMsg = encodeURIComponent(`Hi ${form.customer||""}! Your total for today's service is $${total||"__"}. You can pay via Zelle to 405-215-7685 (Jayce Dunaway - 405 Heating & Air Conditioning). Thank you!`);
     const phone = (form.phone||form.cell||"").replace(/\D/g,"");
     return (
       <div style={{ flex:1, background:"#0F1320", display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
-        <div style={{ background:"#161B2E", border:"1px solid rgba(255,255,255,0.12)", borderRadius:20, padding:"40px 36px", textAlign:"center", maxWidth:440, width:"100%", boxShadow:"0 24px 64px rgba(0,0,0,0.6)" }}>
+        <div style={{ background:"#161B2E", border:"1px solid rgba(255,255,255,0.12)", borderRadius:20, padding:"40px 36px", textAlign:"center", maxWidth:440, width:"100%", boxShadow:"0 24px 64px rgba(0,0,0,0.6)", position:"relative" }}>
+          {/* Close button */}
+          <button onClick={resetForm} style={{ position:"absolute", top:16, right:16, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, width:32, height:32, fontSize:18, color:"#A8B4CC", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
           {/* Success icon */}
           <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(0,196,140,0.15)", border:"2px solid rgba(0,196,140,0.4)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, margin:"0 auto 20px" }}>✓</div>
           <h2 style={{ fontSize:22, marginBottom:8, color:"#F0F4FF", fontWeight:700, letterSpacing:"-0.02em" }}>Work Order Submitted</h2>
@@ -236,23 +238,14 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
           <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:20 }}>
             {/* Text Square payment link to customer */}
             <button onClick={()=>{
-              const phone = (form.phone||form.cell||"").replace(/\D/g,"");
               const msg = encodeURIComponent(`Hi ${form.customer||""}! Your total for today's service is $${total||"__"}. You can pay securely by card at: https://square.link/u/405HVAC — 405 Heating & Air Conditioning. Thank you!`);
               if(phone){ window.open(`sms:${phone}?body=${msg}`); }
-              else { navigator.clipboard.writeText(decodeURIComponent(msg)).then(()=>alert("Message copied! Paste it to send to the customer.")).catch(()=>alert(decodeURIComponent(msg))); }
+              else { navigator.clipboard.writeText(decodeURIComponent(msg)).then(()=>alert("Message copied!")).catch(()=>alert(decodeURIComponent(msg))); }
             }} style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, background:"linear-gradient(135deg,#006AFF,#0050CC)", color:"#fff", border:"none", borderRadius:12, padding:"14px 24px", fontSize:15, fontWeight:700, cursor:"pointer", width:"100%" }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="5" fill="#fff"/><rect x="6" y="6" width="12" height="12" rx="2" fill="#006AFF"/></svg>
               Text Customer Square Link
             </button>
-            {/* Open my Zelle app */}
-            <button onClick={()=>{
-              const fallback = setTimeout(()=>window.open("https://enroll.zellepay.com","_blank"), 1500);
-              window.location.href = `zelle://send?amount=${parseFloat(total||0).toFixed(2)}`;
-              window.addEventListener("blur",()=>clearTimeout(fallback),{once:true});
-            }} style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, background:"rgba(107,63,160,0.2)", color:"#B48FE0", border:"1px solid rgba(107,63,160,0.5)", borderRadius:12, padding:"14px 24px", fontSize:15, fontWeight:700, cursor:"pointer", width:"100%" }}>
-              <span style={{ fontSize:20 }}>💜</span> Open My Zelle App
-            </button>
-            {/* Square */}
+            {/* Charge via Square */}
             {total&&<button onClick={()=>{
               const cents=Math.round((parseFloat(total)||0)*100);
               const squareUrl=`square-commerce-v1://payment/create?data=${encodeURIComponent(JSON.stringify({amount_money:{amount:cents,currency_code:"USD"},callback_url:window.location.href,client_id:"fieldops-405-hvac",version:"1.3",notes:"405 Heating & Air Conditioning"}))}`;
@@ -265,7 +258,7 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
             </button>}
           </div>
 
-          <button onClick={()=>{ resetForm(); if(onSave) {} }} style={{ background:"rgba(255,255,255,0.06)", color:"#A8B4CC", border:"1px solid rgba(255,255,255,0.12)", borderRadius:10, padding:"11px 28px", fontSize:14, cursor:"pointer", fontWeight:500, width:"100%" }}>
+          <button onClick={resetForm} style={{ background:"rgba(255,255,255,0.06)", color:"#A8B4CC", border:"1px solid rgba(255,255,255,0.12)", borderRadius:10, padding:"11px 28px", fontSize:14, cursor:"pointer", fontWeight:500, width:"100%" }}>
             + New Work Order
           </button>
         </div>
@@ -423,7 +416,8 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
               const mats = [...form.materials];
               const emptyIdx = mats.findIndex(m => !m.description && !m.qty);
               const idx = emptyIdx >= 0 ? emptyIdx : mats.length;
-              const newRow = { qty: "1", description: item.name, unitPrice: String(item.price), amount: String(item.price) };
+              const price = woDiscount ? (parseFloat(item.price) * 0.85).toFixed(2) : String(item.price);
+              const newRow = { qty: "1", description: item.name + (woDiscount ? " (15% off)" : ""), unitPrice: price, amount: price };
               if (idx >= mats.length) mats.push(newRow); else mats[idx] = newRow;
               const total = mats.reduce((sum, m) => sum + (parseFloat(m.amount) || 0), 0);
               setForm(p => ({ ...p, materials: mats, totalAmount: total.toFixed(2) }));
@@ -435,7 +429,10 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
           <div style={s.section}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <div style={{ ...s.sectionHeader, margin: 0 }}>Materials</div>
-              {!isReadOnly && <button onClick={() => setShowPricebook(true)} style={{ fontSize: 12, background: "#1a3a6b", color: "#fff", border: "none", borderRadius: 6, padding: "5px 14px", cursor: "pointer", fontWeight: 600 }}>📋 Browse Pricebook</button>}
+              {!isReadOnly && <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                <button onClick={() => setShowPricebook(true)} style={{ fontSize: 12, background: "#1a3a6b", color: "#fff", border: "none", borderRadius: 6, padding: "5px 14px", cursor: "pointer", fontWeight: 600 }}>📋 Browse Pricebook</button>
+                <button onClick={() => setWoDiscount(p=>!p)} style={{ fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 6, border: `1.5px solid ${woDiscount?"#B45309":"#ccc"}`, background: woDiscount?"#FFFBEB":"#fff", color: woDiscount?"#B45309":"#555", cursor: "pointer" }}>{woDiscount ? "✓ 15% OFF" : "% 15% Discount"}</button>
+              </div>}
             </div>
             {isMobile ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
