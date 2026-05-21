@@ -81,7 +81,7 @@ function PricebookPicker({ onClose, onSelect }) {
   const [search, setSearch] = useState("");
   const [cat, setCat] = useState("all");
   const filtered = allItems.filter(i => cat === "all" || i.category === cat).filter(i => !search || i.name.toLowerCase().includes(search.toLowerCase()));
-  const inp = { width: "100%", padding: "8px 12px", borderRadius: 7, fontSize: 13, border: "1px solid rgba(255,255,255,0.12)", outline: "none", fontFamily: "inherit", boxSizing: "border-box", background: "rgba(255,255,255,0.06)", color: "#F0F4FF" };
+  const inp = { width: "100%", padding: "8px 12px", borderRadius: 7, fontSize: 13, border: "1px solid rgba(255,255,255,0.12)", outline: "none", fontFamily: "inherit", boxSizing: "border-box", background: "#1C2238", color: "#F0F4FF" };
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{ background: "#161B2E", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, width: "100%", maxWidth: 540, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(0,0,0,0.7)" }}>
@@ -94,9 +94,9 @@ function PricebookPicker({ onClose, onSelect }) {
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" style={{ ...inp, paddingLeft: 26 }} autoFocus />
             <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "#6B7A99", fontSize: 13 }}>⌕</span>
           </div>
-          <select value={cat} onChange={e => setCat(e.target.value)} style={{ ...inp, width: "auto" }}>
-            <option value="all">All</option>
-            {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+          <select value={cat} onChange={e => setCat(e.target.value)} style={{ ...inp, width: "auto", colorScheme:"dark" }}>
+            <option value="all" style={{ background:"#1C2238", color:"#F0F4FF" }}>All</option>
+            {CATEGORIES.map(c => <option key={c} value={c} style={{ background:"#1C2238", color:"#F0F4FF" }}>{c}</option>)}
           </select>
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
