@@ -279,13 +279,15 @@ const PRICEBOOK_KEY = "fieldops_pricebook_405_v3";
 
 export function loadPricebook() {
   try {
+    // Clear any old cache keys that might have empty data
+    ["fieldops_pricebook_cache","fieldops_pricebook_v2","fieldops_pricebook"].forEach(k => {
+      try { localStorage.removeItem(k); } catch {}
+    });
     const saved = localStorage.getItem(PRICEBOOK_KEY);
     if(saved) {
       const parsed = JSON.parse(saved);
-      // If saved list is empty or very small, re-seed with defaults
       if(Array.isArray(parsed) && parsed.length > 10) return parsed;
     }
-    // Seed with defaults
     localStorage.setItem(PRICEBOOK_KEY, JSON.stringify(DEFAULT_ITEMS));
     return DEFAULT_ITEMS;
   } catch {
@@ -360,18 +362,18 @@ export default function Pricebook() {
       </div>
 
       {/* Item list */}
-      <div style={{ flex:1, overflowY:"auto" }}>
+      <div style={{ flex:1, overflowY:"auto", background:"#0F1320" }}>
         {filtered.length === 0
           ? <div style={{ textAlign:"center", padding:"60px 20px", color:"#6B7A99" }}><div style={{ fontSize:40, marginBottom:12 }}>💲</div><div style={{ fontSize:16, fontWeight:700, color:"#F0F4FF", marginBottom:8 }}>No items found</div></div>
           : filtered.map(item => (
-            <div key={item.id} style={{ padding:"12px 20px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
+            <div key={item.id} style={{ padding:"12px 20px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, background:"#0F1320" }}>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontSize:13, fontWeight:600, color:"#F0F4FF", marginBottom:2 }}>{item.name}</div>
                 <div style={{ fontSize:11, color:"#6B7A99" }}>{item.category}{item.description ? ` · ${item.description}` : ""}</div>
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
                 <span style={{ fontSize:15, fontWeight:700, color:"#00C48C", fontFamily:"monospace" }}>${parseFloat(item.price).toFixed(2)}</span>
-                <button onClick={()=>setEditing(item)} style={{ fontSize:11, background:"rgba(255,255,255,0.05)", color:"#A8B4CC", border:"1px solid rgba(255,255,255,0.12)", borderRadius:5, padding:"3px 10px", cursor:"pointer" }}>Edit</button>
+                <button onClick={()=>setEditing(item)} style={{ fontSize:11, background:"rgba(255,255,255,0.08)", color:"#F0F4FF", border:"1px solid rgba(255,255,255,0.15)", borderRadius:5, padding:"3px 10px", cursor:"pointer" }}>Edit</button>
                 <button onClick={()=>remove(item.id)} style={{ fontSize:11, background:"rgba(255,77,77,0.1)", color:"#FF4D4D", border:"1px solid rgba(255,77,77,0.25)", borderRadius:5, padding:"3px 8px", cursor:"pointer" }}>✕</button>
               </div>
             </div>
