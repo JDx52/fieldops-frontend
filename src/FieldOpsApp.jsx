@@ -1297,17 +1297,22 @@ function Pricebook() {
   const [cat,setCat]=useState("all");
   const [editing,setEditing]=useState(null);
   const [showNew,setShowNew]=useState(false);
+  const [discount,setDiscount]=useState(false);
   const filtered=items.filter(i=>cat==="all"||i.category===cat).filter(i=>!search||i.name.toLowerCase().includes(search.toLowerCase())||i.category.toLowerCase().includes(search.toLowerCase()));
   function save(item){ const updated=item.id&&items.find(x=>x.id===item.id)?items.map(x=>x.id===item.id?item:x):[...items,{...item,id:"p"+Date.now()}]; savePricebook(updated); setItems(updated); setEditing(null); setShowNew(false); }
   function remove(id){ if(!window.confirm("Delete this item?"))return; const updated=items.filter(x=>x.id!==id); savePricebook(updated); setItems(updated); }
   function reset(){ if(!window.confirm("Reset to 405 default pricebook?"))return; savePricebook(PB_DEFAULTS); setItems(PB_DEFAULTS); }
+  function displayPrice(price){ const p=parseFloat(price); return discount?(p*0.85).toFixed(2):p.toFixed(2); }
   const pbInp={width:"100%",padding:"9px 12px",borderRadius:8,fontSize:13,border:"1px solid var(--border2)",outline:"none",fontFamily:"var(--sans)",boxSizing:"border-box",background:"var(--surface2)",color:"var(--text1)"};
   return (
     <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
       <div style={{padding:"14px 20px",background:"var(--surface)",borderBottom:"1px solid var(--border)",flexShrink:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <div><div style={{fontSize:16,fontWeight:700,fontFamily:"var(--display)",color:"var(--text1)"}}>Pricebook</div><div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{items.length} items · Regular pricing</div></div>
-          <div style={{display:"flex",gap:8}}>
+          <div><div style={{fontSize:16,fontWeight:700,fontFamily:"var(--display)",color:"var(--text1)"}}>Pricebook</div><div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{items.length} items · {discount?"15% discount applied":"Regular pricing"}</div></div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <button onClick={()=>setDiscount(p=>!p)} style={{fontSize:12,fontWeight:600,padding:"5px 12px",borderRadius:8,border:`1px solid ${discount?"var(--amber-bd)":"var(--border)"}`,background:discount?"var(--amber-lt)":"var(--surface2)",color:discount?"var(--amber)":"var(--text3)",cursor:"pointer",transition:"all .15s"}}>
+              {discount?"✓ 15% OFF":"% 15% Discount"}
+            </button>
             <Btn small variant="secondary" onClick={reset}>Reset</Btn>
             <Btn small onClick={()=>setShowNew(true)}>+ Add Item</Btn>
           </div>
@@ -1333,7 +1338,8 @@ function Pricebook() {
                 <div style={{fontSize:11,color:"var(--text3)"}}>{item.category}{item.description?` · ${item.description}`:""}</div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-                <span style={{fontSize:15,fontWeight:700,color:"var(--green)",fontFamily:"var(--mono)"}}>${parseFloat(item.price).toFixed(2)}</span>
+                {discount&&<span style={{fontSize:11,color:"var(--text4)",textDecoration:"line-through",fontFamily:"var(--mono)"}}>${parseFloat(item.price).toFixed(2)}</span>}
+                <span style={{fontSize:15,fontWeight:700,color:discount?"var(--amber)":"var(--green)",fontFamily:"var(--mono)"}}>${displayPrice(item.price)}</span>
                 <Btn small variant="secondary" onClick={()=>setEditing(item)}>Edit</Btn>
                 <Btn small variant="danger" onClick={()=>remove(item.id)}>✕</Btn>
               </div>
