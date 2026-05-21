@@ -166,7 +166,7 @@ function LoginScreen() {
 const NAV_ITEMS = [
   {id:"/",icon:"⊞",label:"Dashboard"},{id:"/dispatch",icon:"📡",label:"Dispatch"},{id:"/customers",icon:"👥",label:"Customers"},
   {id:"/invoices",icon:"📄",label:"Work Orders"},{id:"/jobs",icon:"🔧",label:"Jobs"},{id:"/team",icon:"👷",label:"Team"},
-  {id:"/workorder",icon:"📋",label:"Work Order"},{id:"/pricebook",icon:"💲",label:"Pricebook"},{id:"/estimates",icon:"📝",label:"Estimates"},{id:"/reports",icon:"📊",label:"Reports"},
+  {id:"/workorder",icon:"📋",label:"Work Order"},{id:"/pricebook",icon:"💲",label:"Pricebook"},{id:"/templates",icon:"📌",label:"Templates"},{id:"/estimates",icon:"📝",label:"Estimates"},{id:"/reports",icon:"📊",label:"Reports"},
 ];
 function Sidebar({ collapsed, setCollapsed }) {
   const { route, navigate } = useRouter(); const { user, logout } = useAuth();
@@ -216,7 +216,7 @@ function Sidebar({ collapsed, setCollapsed }) {
   );
 }
 
-const PAGE_TITLES = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/invoices":"Work Orders","/jobs":"Jobs","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook","/reports":"Reports","/estimates":"Estimates"};
+const PAGE_TITLES = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/invoices":"Work Orders","/jobs":"Jobs","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook","/reports":"Reports","/estimates":"Estimates","/templates":"Job Templates"};
 function TopBar() {
   const { route, navigate } = useRouter();
   const [query, setQuery] = useState("");
@@ -694,15 +694,40 @@ function ScheduleJobModal({ job, onClose, onScheduled }) {
   );
 }
 
+// ── JOB TEMPLATES ──
+const TEMPLATES_KEY = "fieldops_job_templates";
+const DEFAULT_TEMPLATES = [
+  { id:"t1", name:"AC Tune-Up", icon:"❄️", title:"AC Tune-Up & Inspection", description:"Annual air conditioning tune-up and inspection. Check refrigerant, clean coils, inspect electrical components.", priority:"normal" },
+  { id:"t2", name:"Furnace Check", icon:"🔥", title:"Furnace Inspection & Tune-Up", description:"Annual furnace inspection. Check heat exchanger, burners, igniter, safety controls, and filter.", priority:"normal" },
+  { id:"t3", name:"AC Not Cooling", icon:"🌡️", title:"AC Not Cooling", description:"Customer reports AC unit is running but not cooling. Check refrigerant charge, airflow, and thermostat.", priority:"high" },
+  { id:"t4", name:"No Heat", icon:"🧊", title:"No Heat — Furnace Not Working", description:"Customer has no heat. Diagnose furnace failure — check igniter, gas valve, pressure switches, and control board.", priority:"urgent" },
+  { id:"t5", name:"New Install", icon:"🏗️", title:"New System Installation", description:"New HVAC system installation. Includes equipment delivery, installation, startup, and customer walkthrough.", priority:"normal" },
+  { id:"t6", name:"Service Call", icon:"🔧", title:"Service Call", description:"General service call. Diagnose and repair reported issue.", priority:"normal" },
+];
+function loadTemplates() {
+  try { const saved = JSON.parse(localStorage.getItem(TEMPLATES_KEY)||"null"); return saved || DEFAULT_TEMPLATES; } catch { return DEFAULT_TEMPLATES; }
+}
+function saveTemplates(list) { try { localStorage.setItem(TEMPLATES_KEY, JSON.stringify(list)); } catch {} }
+
 function NewJobModal({ onClose, onSave }) {
   const [customers, setCustomers] = useState([]);
   const [form, setForm] = useState({ customer_id:"", location_id:"", title:"", description:"", priority:"normal", scheduled_start:"" });
   const [locations, setLocations] = useState([]);
+  const [step, setStep] = useState("template"); // "template" | "form"
+  const templates = loadTemplates();
+
   useEffect(()=>{apiFetch("/customers?limit=100").then(d=>setCustomers(Array.isArray(d)?d:[])).catch(()=>{});},[]);
+
   async function handleCustomerChange(id) {
     setForm(p=>({...p,customer_id:id,location_id:""}));
     if(id){try{const cust=await apiFetch(`/customers/${id}`);setLocations(cust.locations||[]);if(cust.locations?.length===1)setForm(p=>({...p,location_id:cust.locations[0].id}));}catch(e){}}
   }
+
+  function applyTemplate(t) {
+    setForm(p=>({...p, title:t.title, description:t.description, priority:t.priority}));
+    setStep("form");
+  }
+
   async function handleSave() {
     if(!form.customer_id||!form.location_id||!form.title){alert("Customer, location and title required");return;}
     try {
@@ -712,9 +737,38 @@ function NewJobModal({ onClose, onSave }) {
       onSave(job);
     }catch(e){alert(e.message);}
   }
+
+  if(step==="template") return (
+    <Modal title="New Job" onClose={onClose} width={560}>
+      <div style={{ padding:"16px 24px 8px" }}>
+        <div style={{ fontSize:13,color:"var(--text3)",marginBottom:14 }}>Start from a template or create from scratch:</div>
+        <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12 }}>
+          {templates.map(t=>(
+            <button key={t.id} onClick={()=>applyTemplate(t)} style={{ background:"var(--surface2)",border:"1px solid var(--border2)",borderRadius:10,padding:"12px 14px",cursor:"pointer",textAlign:"left",transition:"all .15s",display:"flex",gap:10,alignItems:"flex-start" }}
+              onMouseEnter={e=>{e.currentTarget.style.background="var(--surface3)";e.currentTarget.style.borderColor="var(--blue-bd)";}}
+              onMouseLeave={e=>{e.currentTarget.style.background="var(--surface2)";e.currentTarget.style.borderColor="var(--border2)";}}>
+              <span style={{ fontSize:20,lineHeight:1,flexShrink:0 }}>{t.icon}</span>
+              <div>
+                <div style={{ fontSize:13,fontWeight:600,color:"var(--text1)",marginBottom:3 }}>{t.name}</div>
+                <div style={{ fontSize:11,color:"var(--text3)",lineHeight:1.4 }}>{t.priority==="urgent"?"🔴 Urgent":t.priority==="high"?"🟡 High":"Normal priority"}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ padding:"12px 24px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+        <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+        <Btn variant="secondary" onClick={()=>setStep("form")}>✏️ Blank Job</Btn>
+      </div>
+    </Modal>
+  );
+
   return (
     <Modal title="New Job" onClose={onClose}>
-      <div style={{ padding:"20px 24px",display:"flex",flexDirection:"column",gap:14 }}>
+      <div style={{ padding:"8px 24px 0",borderBottom:"1px solid var(--border)",marginBottom:0 }}>
+        <button onClick={()=>setStep("template")} style={{ background:"none",border:"none",color:"var(--blue)",fontSize:12,cursor:"pointer",padding:"4px 0 10px",display:"flex",alignItems:"center",gap:4 }}>← Templates</button>
+      </div>
+      <div style={{ padding:"16px 24px",display:"flex",flexDirection:"column",gap:14 }}>
         <FormField label="Customer *"><select style={inputStyle} value={form.customer_id} onChange={e=>handleCustomerChange(e.target.value)}><option value="">Select customer…</option>{customers.map(c=><option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}</select></FormField>
         {locations.length>0&&<FormField label="Location *"><select style={inputStyle} value={form.location_id} onChange={e=>setForm(p=>({...p,location_id:e.target.value}))}><option value="">Select location…</option>{locations.map(l=><option key={l.id} value={l.id}>{l.address_line1}, {l.city}</option>)}</select></FormField>}
         <FormField label="Job Title *"><input style={inputStyle} value={form.title} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="e.g. AC Not Cooling" /></FormField>
@@ -994,7 +1048,7 @@ function NewMemberModal({ onClose, onSave }) {
 }
 
 // ── APP SHELL ──
-const PAGE_TITLES_MAP = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/jobs":"Jobs","/invoices":"Work Orders","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook","/reports":"Reports","/estimates":"Estimates"};
+const PAGE_TITLES_MAP = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Customers","/jobs":"Jobs","/invoices":"Work Orders","/team":"Team","/workorder":"Work Order","/pricebook":"Pricebook","/reports":"Reports","/estimates":"Estimates","/templates":"Job Templates"};
 const MOBILE_NAV = [
   {id:"/",icon:"⊞",label:"Home"},
   {id:"/jobs",icon:"🔧",label:"Jobs"},
@@ -1084,6 +1138,93 @@ function AssignTechBtn({ job, onAssigned }) {
 }
 
 // ── ESTIMATES SCREEN ──
+function TemplatesScreen() {
+  const [templates, setTemplates] = useState(loadTemplates());
+  const [editing, setEditing] = useState(null); // null | template object
+  const [showNew, setShowNew] = useState(false);
+  const ICONS = ["🔧","❄️","🔥","🌡️","🧊","🏗️","⚡","💧","📋","🛠️","🔩","✅"];
+
+  function save(t) {
+    const updated = editing?.id
+      ? templates.map(x => x.id===editing.id ? t : x)
+      : [...templates, { ...t, id: "t"+Date.now() }];
+    saveTemplates(updated); setTemplates(updated); setEditing(null); setShowNew(false);
+  }
+  function remove(id) {
+    if(!window.confirm("Delete this template?")) return;
+    const updated = templates.filter(x=>x.id!==id);
+    saveTemplates(updated); setTemplates(updated);
+  }
+  function reset() {
+    if(!window.confirm("Reset to default templates? This will remove any custom templates.")) return;
+    saveTemplates(DEFAULT_TEMPLATES); setTemplates(DEFAULT_TEMPLATES);
+  }
+
+  return (
+    <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
+      {(editing||showNew)&&<TemplateEditModal template={editing||{icon:"🔧",name:"",title:"",description:"",priority:"normal"}} icons={ICONS} onClose={()=>{setEditing(null);setShowNew(false);}} onSave={save} />}
+      <div style={{ padding:"14px 20px",background:"var(--surface)",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0 }}>
+        <div>
+          <div style={{ fontSize:16,fontFamily:"var(--display)",fontWeight:700 }}>Job Templates</div>
+          <div style={{ fontSize:12,color:"var(--text3)",marginTop:2 }}>Quick-start templates for common job types</div>
+        </div>
+        <div style={{ display:"flex",gap:8 }}>
+          <Btn small variant="secondary" onClick={reset}>Reset defaults</Btn>
+          <Btn small onClick={()=>setShowNew(true)}>+ New Template</Btn>
+        </div>
+      </div>
+      <div style={{ flex:1,overflowY:"auto",padding:16 }}>
+        <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12 }}>
+          {templates.map(t=>(
+            <Card key={t.id} style={{ padding:"16px 18px" }}>
+              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10 }}>
+                <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+                  <span style={{ fontSize:24 }}>{t.icon}</span>
+                  <div>
+                    <div style={{ fontSize:14,fontWeight:700,fontFamily:"var(--display)" }}>{t.name}</div>
+                    <span style={{ fontSize:10,fontWeight:600,color:t.priority==="urgent"?"var(--red)":t.priority==="high"?"var(--amber)":"var(--text4)",background:t.priority==="urgent"?"var(--red-lt)":t.priority==="high"?"var(--amber-lt)":"var(--surface2)",border:`1px solid ${t.priority==="urgent"?"var(--red-bd)":t.priority==="high"?"var(--amber-bd)":"var(--border)"}`,borderRadius:4,padding:"1px 7px" }}>{t.priority.charAt(0).toUpperCase()+t.priority.slice(1)}</span>
+                  </div>
+                </div>
+                <div style={{ display:"flex",gap:6 }}>
+                  <Btn small variant="secondary" onClick={()=>setEditing(t)}>Edit</Btn>
+                  <Btn small variant="danger" onClick={()=>remove(t.id)}>✕</Btn>
+                </div>
+              </div>
+              <div style={{ fontSize:13,fontWeight:600,color:"var(--text1)",marginBottom:4 }}>{t.title}</div>
+              {t.description&&<div style={{ fontSize:12,color:"var(--text3)",lineHeight:1.5 }}>{t.description}</div>}
+            </Card>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TemplateEditModal({ template, icons, onClose, onSave }) {
+  const [f, setF] = useState({ ...template });
+  function set(k,v) { setF(p=>({...p,[k]:v})); }
+  return (
+    <Modal title={f.id ? "Edit Template" : "New Template"} onClose={onClose}>
+      <div style={{ padding:"18px 24px",display:"flex",flexDirection:"column",gap:14 }}>
+        <div>
+          <div style={{ fontSize:11,fontWeight:600,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8 }}>Icon</div>
+          <div style={{ display:"flex",flexWrap:"wrap",gap:6 }}>
+            {icons.map(ic=><button key={ic} onClick={()=>set("icon",ic)} style={{ fontSize:20,width:36,height:36,borderRadius:8,border:f.icon===ic?"2px solid var(--blue)":"1px solid var(--border)",background:f.icon===ic?"var(--blue-lt)":"var(--surface2)",cursor:"pointer" }}>{ic}</button>)}
+          </div>
+        </div>
+        <FormField label="Template Name *"><input style={inputStyle} value={f.name} onChange={e=>set("name",e.target.value)} placeholder="e.g. AC Tune-Up" /></FormField>
+        <FormField label="Job Title *"><input style={inputStyle} value={f.title} onChange={e=>set("title",e.target.value)} placeholder="Title that appears on the job" /></FormField>
+        <FormField label="Default Description"><textarea style={{...inputStyle,height:80,resize:"vertical"}} value={f.description} onChange={e=>set("description",e.target.value)} placeholder="Pre-filled description…" /></FormField>
+        <FormField label="Default Priority"><select style={inputStyle} value={f.priority} onChange={e=>set("priority",e.target.value)}>{["low","normal","high","urgent"].map(p=><option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>)}</select></FormField>
+      </div>
+      <div style={{ padding:"14px 24px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:10 }}>
+        <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={()=>{ if(!f.name||!f.title){alert("Name and title required");return;} onSave(f); }}>{f.id?"Save Changes":"Create Template"}</Btn>
+      </div>
+    </Modal>
+  );
+}
+
 function EstimatesScreen() {
   const [estimates,setEstimates]=useState([]); const [loading,setLoading]=useState(true); const [showNew,setShowNew]=useState(false); const [customers,setCustomers]=useState([]);
   useEffect(()=>{Promise.all([apiFetch("/estimates?limit=100").catch(()=>[]),apiFetch("/customers?limit=100").catch(()=>[])]).then(([e,c])=>{setEstimates(Array.isArray(e)?e:[]);setCustomers(Array.isArray(c)?c:[]);}).finally(()=>setLoading(false));},[]);
@@ -1171,6 +1312,7 @@ function AppShell() {
       setCurrentJob(null);
     }} />,
     "/pricebook": <Pricebook />,
+    "/templates": <TemplatesScreen />,
     "/estimates": <EstimatesScreen />,
     "/reports": <ReportsScreen />,
   };
