@@ -1501,13 +1501,11 @@ function AppShell() {
     "/workorder": <WorkOrder405 prefill={currentJob} onSave={async wo=>{
       await saveWorkOrder({...wo,customerId:currentJob?.customerId});
       const jobId = wo.jobId||currentJob?.jobId;
-      console.log("[FieldOps] WO submitted. jobId:", jobId, "wo.jobId:", wo.jobId, "currentJob?.jobId:", currentJob?.jobId);
       if(jobId){
         try {
           const token = getToken();
           const res = await fetch(`${API_URL}/jobs/${jobId}/status`,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({status:"completed"})});
-          console.log("[FieldOps] Status update response:", res.status, res.ok);
-        } catch(e){ console.error("[FieldOps] Auto-complete failed:",e); }
+        } catch(e){ console.error("Auto-complete failed:",e); }
       }
       setCurrentJob(null);
       if(jobId) navigate("/jobs");
