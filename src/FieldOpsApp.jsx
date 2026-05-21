@@ -325,20 +325,39 @@ function Dashboard() {
 }
 
 // ── MAINTENANCE CUSTOMERS ──
-const MAINT_KEY = "fieldops_maintenance_customers";
-function loadMaintenance() { try { return JSON.parse(localStorage.getItem(MAINT_KEY)||"[]"); } catch { return []; } }
-function toggleMaintenance(id) {
-  const list = loadMaintenance();
-  const updated = list.includes(id) ? list.filter(x=>x!==id) : [...list, id];
-  localStorage.setItem(MAINT_KEY, JSON.stringify(updated));
-  return updated.includes(id);
+// Stored on the server via customer notes field so it syncs across devices
+function isMaintenance(customer) {
+  // Check the customer object's is_maintenance field OR notes containing [MAINTENANCE]
+  return customer?.is_maintenance === true || customer?.is_maintenance === 1 || (customer?.notes||"").includes("[MAINTENANCE]");
 }
-function isMaintenance(id) { return loadMaintenance().includes(id); }
 
 function CustomerDetail({ customer, onBack, onDelete }) {
   const { navigate } = useRouter(); const { setCurrentJob } = useJobContext();
   const [jobs,setJobs]=useState([]); const [notes,setNotes]=useState(customer.notes||""); const [editingNotes,setEditingNotes]=useState(false); const [savingNotes,setSavingNotes]=useState(false); const [loadingJobs,setLoadingJobs]=useState(true); const [tab,setTab]=useState("info"); const [workOrders,setWorkOrders]=useState([]); const [viewWO,setViewWO]=useState(null); const [detailJob,setDetailJob]=useState(null);
-  const [maintenance,setMaintenance]=useState(()=>isMaintenance(customer.id));
+  const [maintenance,setMaintenance]=useState(()=>isMaintenance(customer));
+  const [togglingMaint,setTogglingMaint]=useState(false);
+
+  async function handleToggleMaintenance() {
+    setTogglingMaint(true);
+    const newVal = !maintenance;
+    try {
+      // Try to save is_maintenance field to the server
+      await apiFetch(`/customers/${customer.id}`, { method:"PATCH", body:JSON.stringify({ is_maintenance: newVal }) });
+      setMaintenance(newVal);
+    } catch(e) {
+      // Fallback: store in notes field with [MAINTENANCE] tag
+      try {
+        const currentNotes = notes || "";
+        const updatedNotes = newVal
+          ? (currentNotes.includes("[MAINTENANCE]") ? currentNotes : "[MAINTENANCE] " + currentNotes)
+          : currentNotes.replace("[MAINTENANCE]", "").trim();
+        await apiFetch(`/customers/${customer.id}`, { method:"PATCH", body:JSON.stringify({ notes: updatedNotes }) });
+        setNotes(updatedNotes);
+        setMaintenance(newVal);
+      } catch(e2) { alert("Could not save maintenance status"); }
+    }
+    setTogglingMaint(false);
+  }
 
   // Build equipment history from work orders
   const equipment = (() => {
@@ -381,12 +400,12 @@ function CustomerDetail({ customer, onBack, onDelete }) {
           <div>
             <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:4 }}>
               <h2 style={{ fontSize:22,fontFamily:"var(--display)",fontWeight:800 }}>{customer.first_name} {customer.last_name}</h2>
-              {maintenance&&<span style={{ fontSize:11,fontWeight:700,background:"var(--green-lt)",color:"var(--green)",border:"1px solid var(--green-bd)",borderRadius:100,padding:"3px 10px",whiteSpace:"nowrap" }}>🔧 Maintenance</span>}
+              {isMaintenance(customer)&&<span style={{ fontSize:11,fontWeight:700,background:"var(--green-lt)",color:"var(--green)",border:"1px solid var(--green-bd)",borderRadius:100,padding:"3px 10px",whiteSpace:"nowrap" }}>🔧 Maintenance</span>}
             </div>
             <div style={{ display:"flex",flexDirection:"column",gap:3 }}>{customer.phone&&<a href={`tel:${customer.phone}`} style={{ fontSize:13,color:"var(--blue)",textDecoration:"none",display:"flex",alignItems:"center",gap:5 }}>📞 {customer.phone}</a>}{customer.email&&<span style={{ fontSize:13,color:"var(--text3)" }}>✉ {customer.email}</span>}</div>
           </div>
           <div style={{ display:"flex",gap:8 }}>
-            <button onClick={()=>{ const now=toggleMaintenance(customer.id); setMaintenance(now); }} style={{ fontSize:12,fontWeight:600,background:maintenance?"var(--green-lt)":"var(--surface2)",color:maintenance?"var(--green)":"var(--text3)",border:`1px solid ${maintenance?"var(--green-bd)":"var(--border)"}`,borderRadius:7,padding:"7px 14px",cursor:"pointer",transition:"all .15s" }}>{maintenance?"🔧 Maintenance ✓":"🔧 Add Maintenance"}</button>
+            <button onClick={handleToggleMaintenance} disabled={togglingMaint} style={{ fontSize:12,fontWeight:600,background:maintenance?"var(--green-lt)":"var(--surface2)",color:maintenance?"var(--green)":"var(--text3)",border:`1px solid ${maintenance?"var(--green-bd)":"var(--border)"}`,borderRadius:7,padding:"7px 14px",cursor:"pointer",transition:"all .15s",opacity:togglingMaint?0.6:1 }}>{togglingMaint?"Saving…":maintenance?"🔧 Maintenance ✓":"🔧 Add Maintenance"}</button>
             <button onClick={()=>{ const msg=encodeURIComponent(`Jayson is trying to get his Google reviews up. If you have time, would you mind leaving a Google review he would really appreciate it. Thanks - 405 Heating and Air Conditioning https://g.page/r/CVTRHVvrhBTBEBM/review`); const phone=(customer.phone||customer.cell||"").replace(/\D/g,""); if(phone){window.open(`sms:${phone}?body=${msg}`);}else{alert("No phone number for this customer.");} }} style={{ fontSize:12,fontWeight:600,background:"var(--green-lt)",color:"var(--green)",border:"1px solid var(--green-bd)",borderRadius:7,padding:"7px 14px",cursor:"pointer" }}>⭐ Request Review</button>
             <Btn small variant="danger" onClick={()=>onDelete(customer.id)}>Archive</Btn>
           </div>
@@ -474,7 +493,7 @@ function CustomersScreen() {
           <div onClick={()=>setSelected(c)} style={{ flex:1,cursor:"pointer",minWidth:0 }}>
             <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap" }}>
               <span style={{ fontSize:14,fontWeight:600 }}>{c.first_name} {c.last_name}</span>
-              {isMaintenance(c.id)&&<span style={{ fontSize:10,fontWeight:700,background:"var(--green-lt)",color:"var(--green)",border:"1px solid var(--green-bd)",borderRadius:100,padding:"1px 8px",whiteSpace:"nowrap" }}>🔧 Maintenance</span>}
+              {isMaintenance(c)&&<span style={{ fontSize:10,fontWeight:700,background:"var(--green-lt)",color:"var(--green)",border:"1px solid var(--green-bd)",borderRadius:100,padding:"1px 8px",whiteSpace:"nowrap" }}>🔧 Maintenance</span>}
             </div>
             <div style={{ display:"flex",alignItems:"center",gap:8,flexWrap:"wrap" }}>
               {c.phone&&<a href={`tel:${c.phone}`} onClick={e=>e.stopPropagation()} style={{ fontSize:12,color:"var(--blue)",textDecoration:"none",display:"flex",alignItems:"center",gap:3 }}>📞 {c.phone}</a>}
