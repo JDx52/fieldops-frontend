@@ -325,13 +325,11 @@ function Dashboard() {
 }
 
 // ── MAINTENANCE CUSTOMERS ──
-// Stored on the server via customer notes field so it syncs across devices
 function isMaintenance(customer) {
-  // Check the customer object's is_maintenance field OR notes containing [MAINTENANCE]
   return customer?.is_maintenance === true || customer?.is_maintenance === 1 || (customer?.notes||"").includes("[MAINTENANCE]");
 }
 
-function CustomerDetail({ customer, onBack, onDelete }) {
+function CustomerDetail({ customer, onBack, onDelete, onUpdate }) {
   const { navigate } = useRouter(); const { setCurrentJob } = useJobContext();
   const [jobs,setJobs]=useState([]); const [notes,setNotes]=useState(customer.notes||""); const [editingNotes,setEditingNotes]=useState(false); const [savingNotes,setSavingNotes]=useState(false); const [loadingJobs,setLoadingJobs]=useState(true); const [tab,setTab]=useState("info"); const [workOrders,setWorkOrders]=useState([]); const [viewWO,setViewWO]=useState(null); const [detailJob,setDetailJob]=useState(null);
   const [maintenance,setMaintenance]=useState(()=>isMaintenance(customer));
@@ -341,20 +339,17 @@ function CustomerDetail({ customer, onBack, onDelete }) {
     setTogglingMaint(true);
     const newVal = !maintenance;
     try {
-      // Try to save is_maintenance field to the server
-      await apiFetch(`/customers/${customer.id}`, { method:"PATCH", body:JSON.stringify({ is_maintenance: newVal }) });
+      const currentNotes = notes || "";
+      const updatedNotes = newVal
+        ? (currentNotes.includes("[MAINTENANCE]") ? currentNotes : ("[MAINTENANCE] " + currentNotes).trim())
+        : currentNotes.replace("[MAINTENANCE]", "").trim();
+      await apiFetch(`/customers/${customer.id}`, { method:"PATCH", body:JSON.stringify({ notes: updatedNotes }) });
+      setNotes(updatedNotes);
       setMaintenance(newVal);
+      // Notify parent so list updates too
+      if(onUpdate) onUpdate({ ...customer, notes: updatedNotes });
     } catch(e) {
-      // Fallback: store in notes field with [MAINTENANCE] tag
-      try {
-        const currentNotes = notes || "";
-        const updatedNotes = newVal
-          ? (currentNotes.includes("[MAINTENANCE]") ? currentNotes : "[MAINTENANCE] " + currentNotes)
-          : currentNotes.replace("[MAINTENANCE]", "").trim();
-        await apiFetch(`/customers/${customer.id}`, { method:"PATCH", body:JSON.stringify({ notes: updatedNotes }) });
-        setNotes(updatedNotes);
-        setMaintenance(newVal);
-      } catch(e2) { alert("Could not save maintenance status"); }
+      alert("Could not save maintenance status: " + e.message);
     }
     setTogglingMaint(false);
   }
@@ -400,7 +395,7 @@ function CustomerDetail({ customer, onBack, onDelete }) {
           <div>
             <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:4 }}>
               <h2 style={{ fontSize:22,fontFamily:"var(--display)",fontWeight:800 }}>{customer.first_name} {customer.last_name}</h2>
-              {isMaintenance(customer)&&<span style={{ fontSize:11,fontWeight:700,background:"var(--green-lt)",color:"var(--green)",border:"1px solid var(--green-bd)",borderRadius:100,padding:"3px 10px",whiteSpace:"nowrap" }}>🔧 Maintenance</span>}
+              {maintenance&&<span style={{ fontSize:11,fontWeight:700,background:"var(--green-lt)",color:"var(--green)",border:"1px solid var(--green-bd)",borderRadius:100,padding:"3px 10px",whiteSpace:"nowrap" }}>🔧 Maintenance</span>}
             </div>
             <div style={{ display:"flex",flexDirection:"column",gap:3 }}>{customer.phone&&<a href={`tel:${customer.phone}`} style={{ fontSize:13,color:"var(--blue)",textDecoration:"none",display:"flex",alignItems:"center",gap:5 }}>📞 {customer.phone}</a>}{customer.email&&<span style={{ fontSize:13,color:"var(--text3)" }}>✉ {customer.email}</span>}</div>
           </div>
@@ -480,7 +475,7 @@ function CustomersScreen() {
   async function load(){setLoading(true);try{const d=await apiFetch(`/customers?limit=100${search?`&search=${encodeURIComponent(search)}`:""}`);setList(Array.isArray(d)?d:[]);}catch(e){console.error(e);}setLoading(false);}
   useEffect(()=>{load();},[search]);
   async function handleDelete(id){if(!window.confirm("Archive this customer?"))return;try{await apiFetch(`/customers/${id}`,{method:"DELETE"});setList(p=>p.filter(c=>c.id!==id));setSelected(null);}catch(e){alert(e.message);}}
-  if(selected) return <CustomerDetail customer={selected} onBack={()=>setSelected(null)} onDelete={handleDelete} />;
+  if(selected) return <CustomerDetail customer={selected} onBack={()=>setSelected(null)} onDelete={handleDelete} onUpdate={updated=>{ setList(p=>p.map(c=>c.id===updated.id?updated:c)); setSelected(updated); }} />;
   return (
     <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
       {showNew&&<NewCustomerModal onClose={()=>setShowNew(false)} onSave={async c=>{setList(p=>[c,...p]);setSelected(c);setShowNew(false);}} />}
