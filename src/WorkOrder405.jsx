@@ -232,20 +232,20 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
 
           {/* Payment buttons */}
           <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:20 }}>
-            {/* Zelle - Send request to customer */}
+            {/* Text Square payment link to customer */}
             <button onClick={()=>{
-              const zelleMsg = encodeURIComponent(`Hi ${form.customer||""}! Your total for today's service is $${total||"__"}. You can pay via Zelle to 405-215-7685 (Jayce Dunaway - 405 Heating & Air Conditioning). Thank you!`);
               const phone = (form.phone||form.cell||"").replace(/\D/g,"");
-              if(phone){ window.open(`sms:${phone}?body=${zelleMsg}`); }
-              else { navigator.clipboard.writeText(decodeURIComponent(zelleMsg)).then(()=>alert("Zelle message copied!")).catch(()=>alert(decodeURIComponent(zelleMsg))); }
-            }} style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, background:"linear-gradient(135deg,#6B3FA0,#4B2D7A)", color:"#fff", border:"none", borderRadius:12, padding:"14px 24px", fontSize:15, fontWeight:700, cursor:"pointer", width:"100%" }}>
-              <span style={{ fontSize:20 }}>💜</span> Text Customer Zelle Request
+              const msg = encodeURIComponent(`Hi ${form.customer||""}! Your total for today's service is $${total||"__"}. You can pay securely by card at: https://square.link/u/405HVAC — 405 Heating & Air Conditioning. Thank you!`);
+              if(phone){ window.open(`sms:${phone}?body=${msg}`); }
+              else { navigator.clipboard.writeText(decodeURIComponent(msg)).then(()=>alert("Message copied! Paste it to send to the customer.")).catch(()=>alert(decodeURIComponent(msg))); }
+            }} style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, background:"linear-gradient(135deg,#006AFF,#0050CC)", color:"#fff", border:"none", borderRadius:12, padding:"14px 24px", fontSize:15, fontWeight:700, cursor:"pointer", width:"100%" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="5" fill="#fff"/><rect x="6" y="6" width="12" height="12" rx="2" fill="#006AFF"/></svg>
+              Text Customer Square Link
             </button>
-            {/* Zelle - Open my own Zelle app */}
+            {/* Open my Zelle app */}
             <button onClick={()=>{
-              const amount = parseFloat(total)||0;
               const fallback = setTimeout(()=>window.open("https://enroll.zellepay.com","_blank"), 1500);
-              window.location.href = `zelle://send?amount=${amount.toFixed(2)}`;
+              window.location.href = `zelle://send?amount=${parseFloat(total||0).toFixed(2)}`;
               window.addEventListener("blur",()=>clearTimeout(fallback),{once:true});
             }} style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, background:"rgba(107,63,160,0.2)", color:"#B48FE0", border:"1px solid rgba(107,63,160,0.5)", borderRadius:12, padding:"14px 24px", fontSize:15, fontWeight:700, cursor:"pointer", width:"100%" }}>
               <span style={{ fontSize:20 }}>💜</span> Open My Zelle App
@@ -263,7 +263,7 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
             </button>}
           </div>
 
-          <button onClick={resetForm} style={{ background:"rgba(255,255,255,0.06)", color:"#A8B4CC", border:"1px solid rgba(255,255,255,0.12)", borderRadius:10, padding:"11px 28px", fontSize:14, cursor:"pointer", fontWeight:500, width:"100%" }}>
+          <button onClick={()=>{ resetForm(); if(onSave) {} }} style={{ background:"rgba(255,255,255,0.06)", color:"#A8B4CC", border:"1px solid rgba(255,255,255,0.12)", borderRadius:10, padding:"11px 28px", fontSize:14, cursor:"pointer", fontWeight:500, width:"100%" }}>
             + New Work Order
           </button>
         </div>
@@ -518,8 +518,8 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
             <div style={{ display: "flex", justifyContent: "center", marginTop: 20, paddingBottom: 20 }}>
               <button onClick={async () => {
                 const wo = { ...form, savedAt: new Date().toISOString() };
-                if (onSave) await onSave(wo);
                 setSubmitted(true);
+                if (onSave) onSave(wo);
               }} style={{ background: "#1a3a6b", color: "#fff", border: "none", borderRadius: 10, padding: "14px 48px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
                 Submit Work Order
               </button>

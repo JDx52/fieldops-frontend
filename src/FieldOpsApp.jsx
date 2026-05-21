@@ -1645,11 +1645,10 @@ function AppShell() {
       if(jobId){
         try {
           const token = getToken();
-          const res = await fetch(`${API_URL}/jobs/${jobId}/status`,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({status:"completed"})});
+          await fetch(`${API_URL}/jobs/${jobId}/status`,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({status:"completed"})});
         } catch(e){ console.error("Auto-complete failed:",e); }
       }
       setCurrentJob(null);
-      if(jobId) navigate("/jobs");
     }} />,
     "/pricebook": <Pricebook />,
     "/templates": <TemplatesScreen />,
