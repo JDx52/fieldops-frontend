@@ -928,66 +928,243 @@ function printInvoice(wo) {
   const win=window.open("","_blank"); win.document.write(html); win.document.close();
 }
 
+// ── PAYMENT HELPERS ──
+const PAYMENTS_KEY = "fieldops_payments";
+function loadPayments() { try { return JSON.parse(localStorage.getItem(PAYMENTS_KEY)||"{}"); } catch { return {}; } }
+function savePayment(woId, data) { const p=loadPayments(); p[woId]=data; localStorage.setItem(PAYMENTS_KEY,JSON.stringify(p)); }
+function getPayment(woId) { return loadPayments()[woId]||null; }
+
 function InvoicesScreen() {
   const [list, setList] = useState([]);
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all"); // all | unpaid | paid | partial
+  const [payments, setPayments] = useState(loadPayments());
+
   useEffect(()=>{ fetchWorkOrders().then(setList); }, []);
+
+  function refreshPayments() { setPayments(loadPayments()); }
+
   async function deleteWO(id) {
     if(!window.confirm("Delete this work order?"))return;
     await deleteWorkOrder(id);
     setList(p=>p.filter(w=>w.id!==id)); setSelected(null);
   }
-  const filtered=list.filter(w=>!search||(w.customer||"").toLowerCase().includes(search.toLowerCase())||(w.wo||"").includes(search)||(w.complaint||"").toLowerCase().includes(search.toLowerCase()));
+
+  function getStatus(wo) {
+    const p = payments[wo.id];
+    if(!p) return "unpaid";
+    return p.status||"unpaid";
+  }
+
+  const filtered = list
+    .filter(w=>!search||(w.customer||"").toLowerCase().includes(search.toLowerCase())||(w.wo||"").includes(search)||(w.complaint||"").toLowerCase().includes(search.toLowerCase()))
+    .filter(w=>filterStatus==="all"||getStatus(w)===filterStatus);
+
+  // Summary stats
+  const totalRevenue = list.reduce((s,w)=>s+(parseFloat(w.totalAmount)||0),0);
+  const totalPaid = list.filter(w=>getStatus(w)==="paid").reduce((s,w)=>s+(parseFloat(w.totalAmount)||0),0);
+  const totalOutstanding = list.filter(w=>getStatus(w)!=="paid").reduce((s,w)=>s+(parseFloat(w.totalAmount)||0),0);
+  const unpaidCount = list.filter(w=>getStatus(w)==="unpaid").length;
+
+  const statusColor = { paid:"var(--green)", unpaid:"var(--red)", partial:"var(--amber)" };
+  const statusBg = { paid:"var(--green-lt)", unpaid:"var(--red-lt)", partial:"var(--amber-lt)" };
+  const statusBd = { paid:"var(--green-bd)", unpaid:"var(--red-bd)", partial:"var(--amber-bd)" };
+  const statusLabel = { paid:"Paid", unpaid:"Unpaid", partial:"Partial" };
+
   if(selected) {
+    const pmt = payments[selected.id]||{};
+    const pmtStatus = pmt.status||"unpaid";
     return (
-      <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--surface)" }}>
-        <div style={{ padding:"12px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
+      <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--bg)" }}>
+        <div style={{ padding:"12px 16px",borderBottom:"1px solid var(--border)",background:"var(--surface)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
           <button onClick={()=>setSelected(null)} style={{ background:"none",border:"none",color:"var(--blue)",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:0 }}>← Work Orders</button>
           <div style={{ display:"flex",gap:8 }}>
             <Btn small variant="secondary" onClick={()=>printWorkOrder(selected)}>🖨️ Print</Btn>
             <Btn small variant="secondary" onClick={()=>{ const email=selected.email||prompt("Enter customer email:"); if(!email)return; const sub=encodeURIComponent(`Work Order ${selected.wo||""} - 405 Heating & Air`); const bod=encodeURIComponent(`Hello ${selected.customer||""},\n\nWork Order #: ${selected.wo||"—"}\nDate: ${selected.date||"—"}\nTotal Due: ${selected.totalAmount?"$"+selected.totalAmount:"—"}\n\nThank you for choosing 405 Heating & Air.\n405-215-7685`); window.open(`mailto:${email}?subject=${sub}&body=${bod}`); }}>✉️ Email</Btn>
             <Btn small variant="secondary" onClick={()=>printInvoice(selected)}>🧾 Invoice</Btn>
-            <Btn small variant="secondary" onClick={()=>{ const data=encodeURIComponent(JSON.stringify(selected)); const url=`${window.location.origin}${window.location.pathname}#/portal?wo=${data}`; navigator.clipboard.writeText(url).then(()=>alert("Portal link copied!")).catch(()=>prompt("Copy this link:",url)); }}>🔗 Share</Btn>
             <Btn small variant="danger" onClick={()=>deleteWO(selected.id)}>Delete</Btn>
           </div>
         </div>
         <div style={{ flex:1,overflowY:"auto",padding:20 }}>
-          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20 }}>
-            <div><div style={{ fontSize:12,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:4 }}>WO# {selected.wo||"—"}</div><div style={{ fontSize:22,fontFamily:"var(--display)",fontWeight:800,marginBottom:4 }}>{selected.customer||"—"}</div><div style={{ fontSize:13,color:"var(--text3)" }}>{selected.date||"No date"}</div></div>
-            <div style={{ textAlign:"right" }}><div style={{ fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4 }}>Total Due</div><div style={{ fontSize:32,fontFamily:"var(--mono)",fontWeight:700,color:"var(--blue)" }}>{selected.totalAmount?`$${selected.totalAmount}`:"—"}</div></div>
+          {/* Header */}
+          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12 }}>
+            <div>
+              <div style={{ fontSize:12,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:4 }}>WO# {selected.wo||"—"}</div>
+              <div style={{ fontSize:22,fontFamily:"var(--display)",fontWeight:800,marginBottom:4 }}>{selected.customer||"—"}</div>
+              <div style={{ fontSize:13,color:"var(--text3)" }}>{selected.date||"No date"}</div>
+            </div>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4 }}>Total</div>
+              <div style={{ fontSize:32,fontFamily:"var(--mono)",fontWeight:700,color:"var(--text1)",marginBottom:8 }}>{selected.totalAmount?`$${selected.totalAmount}`:"—"}</div>
+              <span style={{ fontSize:12,fontWeight:700,color:statusColor[pmtStatus],background:statusBg[pmtStatus],border:`1px solid ${statusBd[pmtStatus]}`,borderRadius:6,padding:"4px 12px" }}>{pmtStatus==="paid"?"✓ Paid":pmtStatus==="partial"?"◐ Partial":"● Unpaid"}</span>
+            </div>
           </div>
-          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16 }}>
+
+          {/* Payment Panel */}
+          <PaymentPanel wo={selected} pmt={pmt} onUpdate={()=>{ refreshPayments(); setSelected(p=>({...p})); }} />
+
+          {/* Details */}
+          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16,marginTop:16 }}>
             {[["Phone",selected.phone],["Cell",selected.cell],["Email",selected.email],["Address",selected.billingAddress],["Complaint",selected.complaint],["Technician",selected.technician],["Time In",selected.timeIn],["Time Out",selected.timeOut]].filter(([,v])=>v).map(([l,v])=>(
               <div key={l} style={{ background:"var(--surface2)",borderRadius:8,padding:"10px 12px" }}><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3 }}>{l}</div><div style={{ fontSize:13 }}>{v}</div></div>
             ))}
           </div>
-          {selected.checklist?.length>0&&<Card style={{ padding:"14px 16px",marginBottom:12 }}><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10 }}>Service Checklist</div><div style={{ display:"flex",flexWrap:"wrap",gap:6 }}>{selected.checklist.map(item=><span key={item} style={{ background:"var(--green-lt)",color:"var(--green)",border:"1px solid var(--green-bd)",fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:100 }}>✓ {item}</span>)}</div></Card>}
           {selected.descriptionOfWork&&<Card style={{ padding:"14px 16px",marginBottom:12 }}><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8 }}>Description of Work</div><div style={{ fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap" }}>{selected.descriptionOfWork}</div></Card>}
-          {selected.recommendations&&<Card style={{ padding:"14px 16px",marginBottom:12 }}><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8 }}>Recommendations</div><div style={{ fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap" }}>{selected.recommendations}</div></Card>}
-          {selected.materials?.some(m=>m.description)&&<Card style={{ padding:"14px 16px",marginBottom:12 }}><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10 }}>Materials</div><table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}><thead><tr style={{ background:"var(--surface2)" }}>{["Qty","Description","Unit Price","Amount"].map(h=><th key={h} style={{ padding:"6px 10px",textAlign:"left",fontSize:11,fontWeight:600,color:"var(--text3)",borderBottom:"1px solid var(--border)" }}>{h}</th>)}</tr></thead><tbody>{selected.materials.filter(m=>m.description).map((m,i)=><tr key={i} style={{ borderBottom:"1px solid var(--border)" }}><td style={{ padding:"8px 10px" }}>{m.qty||"1"}</td><td style={{ padding:"8px 10px" }}>{m.description}</td><td style={{ padding:"8px 10px" }}>{m.unitPrice?`$${m.unitPrice}`:""}</td><td style={{ padding:"8px 10px",fontWeight:600,color:"var(--green)" }}>{m.amount?`$${m.amount}`:""}</td></tr>)}</tbody></table><div style={{ display:"flex",justifyContent:"flex-end",marginTop:12 }}><div style={{ background:"var(--blue-lt)",border:"1px solid var(--blue-bd)",borderRadius:8,padding:"10px 20px",textAlign:"right" }}><div style={{ fontSize:11,color:"var(--text3)",marginBottom:2 }}>TOTAL DUE</div><div style={{ fontSize:22,fontFamily:"var(--mono)",fontWeight:700,color:"var(--blue)" }}>{selected.totalAmount?`$${selected.totalAmount}`:"—"}</div></div></div></Card>}
+          {selected.materials?.some(m=>m.description)&&<Card style={{ padding:"14px 16px",marginBottom:12 }}><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10 }}>Materials</div><table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}><thead><tr style={{ background:"var(--surface2)" }}>{["Qty","Description","Unit Price","Amount"].map(h=><th key={h} style={{ padding:"6px 10px",textAlign:"left",fontSize:11,fontWeight:600,color:"var(--text3)",borderBottom:"1px solid var(--border)" }}>{h}</th>)}</tr></thead><tbody>{selected.materials.filter(m=>m.description).map((m,i)=><tr key={i} style={{ borderBottom:"1px solid var(--border)" }}><td style={{ padding:"8px 10px" }}>{m.qty||"1"}</td><td style={{ padding:"8px 10px" }}>{m.description}</td><td style={{ padding:"8px 10px" }}>{m.unitPrice?`$${m.unitPrice}`:""}</td><td style={{ padding:"8px 10px",fontWeight:600,color:"var(--green)" }}>{m.amount?`$${m.amount}`:""}</td></tr>)}</tbody></table></Card>}
           {selected.printName&&<Card style={{ padding:"14px 16px" }}><div style={{ fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8 }}>Signature</div><div style={{ fontSize:13 }}>{selected.printName} · {selected.signDate||""}</div></Card>}
         </div>
       </div>
     );
   }
+
   return (
     <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
-      <div style={{ padding:"12px 16px",borderBottom:"1px solid var(--border)",background:"var(--surface)",flexShrink:0 }}>
-        <div style={{ fontSize:16,fontFamily:"var(--display)",fontWeight:700,marginBottom:10 }}>Work Orders</div>
-        <div style={{ position:"relative" }}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search customer, WO#, complaint…" style={{ ...inputStyle,paddingLeft:28 }} /><span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"var(--text3)",fontSize:12 }}>⌕</span></div>
+      {/* Revenue summary bar */}
+      <div style={{ padding:"14px 20px",background:"var(--surface)",borderBottom:"1px solid var(--border)",flexShrink:0 }}>
+        <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:14 }}>
+          {[
+            {label:"Total Revenue",val:`$${totalRevenue.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}`,color:"var(--text1)"},
+            {label:"Collected",val:`$${totalPaid.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}`,color:"var(--green)"},
+            {label:"Outstanding",val:`$${totalOutstanding.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}`,color:totalOutstanding>0?"var(--red)":"var(--text3)"},
+          ].map(s=>(
+            <div key={s.label} style={{ background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:10,padding:"12px 14px" }}>
+              <div style={{ fontSize:10,fontWeight:600,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6 }}>{s.label}</div>
+              <div style={{ fontSize:20,fontFamily:"var(--mono)",fontWeight:700,color:s.color }}>{s.val}</div>
+            </div>
+          ))}
+        </div>
+        {/* Filters + search */}
+        <div style={{ display:"flex",gap:8,flexWrap:"wrap",alignItems:"center" }}>
+          <div style={{ position:"relative",flex:1,minWidth:160 }}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search customer, WO#…" style={{ ...inputStyle,paddingLeft:28 }} />
+            <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"var(--text3)",fontSize:12 }}>⌕</span>
+          </div>
+          <div style={{ display:"flex",gap:4 }}>
+            {["all","unpaid","partial","paid"].map(s=>(
+              <button key={s} onClick={()=>setFilterStatus(s)} style={{ fontSize:11,padding:"5px 12px",borderRadius:100,background:filterStatus===s?(s==="paid"?"var(--green)":s==="unpaid"?"var(--red)":s==="partial"?"var(--amber)":"var(--blue)"):"var(--surface2)",color:filterStatus===s?"#fff":"var(--text3)",border:"1px solid var(--border)",cursor:"pointer",fontWeight:filterStatus===s?600:400,transition:"all .15s" }}>
+                {s==="all"?`All (${list.length})`:s==="unpaid"?`Unpaid (${list.filter(w=>getStatus(w)==="unpaid").length})`:s==="partial"?`Partial (${list.filter(w=>getStatus(w)==="partial").length})`:`Paid (${list.filter(w=>getStatus(w)==="paid").length})`}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
       <div style={{ flex:1,overflowY:"auto" }}>
-        {filtered.length===0?<EmptyState icon="📋" title="No work orders yet" desc="Submit a work order from the Jobs tab to see it here" />:filtered.map(wo=>(
-          <div key={wo.id} onClick={()=>setSelected(wo)} style={{ padding:"14px 16px",borderBottom:"1px solid var(--border)",cursor:"pointer",transition:"background .1s" }} onMouseEnter={e=>e.currentTarget.style.background="var(--surface2)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4 }}>
-              <div><div style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)",marginBottom:2 }}>WO# {wo.wo||"—"}</div><div style={{ fontSize:14,fontWeight:600 }}>{wo.customer||"Unknown Customer"}</div><div style={{ fontSize:12,color:"var(--text3)",marginTop:2 }}>{wo.complaint||"No description"}</div></div>
-              <div style={{ textAlign:"right",flexShrink:0 }}><div style={{ fontSize:16,fontFamily:"var(--mono)",fontWeight:700,color:"var(--green)" }}>{wo.totalAmount?`$${wo.totalAmount}`:"—"}</div><div style={{ fontSize:11,color:"var(--text3)",marginTop:2 }}>{wo.date||"No date"}</div></div>
+        {filtered.length===0?<EmptyState icon="📋" title="No work orders found" desc={filterStatus!=="all"?"Try a different filter":"Submit a work order from the Jobs tab"} />:filtered.map(wo=>{
+          const pmtStatus = getStatus(wo);
+          return (
+            <div key={wo.id} onClick={()=>setSelected(wo)} style={{ padding:"14px 16px",borderBottom:"1px solid var(--border)",cursor:"pointer",transition:"background .1s",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12 }} onMouseEnter={e=>e.currentTarget.style.background="var(--surface2)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <div style={{ flex:1,minWidth:0 }}>
+                <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:3 }}>
+                  <span style={{ fontSize:11,fontFamily:"var(--mono)",color:"var(--text3)" }}>WO#{wo.wo||"—"}</span>
+                  <span style={{ fontSize:10,fontWeight:700,color:statusColor[pmtStatus],background:statusBg[pmtStatus],border:`1px solid ${statusBd[pmtStatus]}`,borderRadius:4,padding:"1px 7px" }}>{statusLabel[pmtStatus]}</span>
+                </div>
+                <div style={{ fontSize:14,fontWeight:600,marginBottom:2 }}>{wo.customer||"Unknown"}</div>
+                <div style={{ fontSize:12,color:"var(--text3)" }}>{wo.complaint||"No description"} · {wo.date||"No date"}</div>
+              </div>
+              <div style={{ textAlign:"right",flexShrink:0 }}>
+                <div style={{ fontSize:18,fontFamily:"var(--mono)",fontWeight:700,color:pmtStatus==="paid"?"var(--green)":pmtStatus==="partial"?"var(--amber)":"var(--text1)" }}>{wo.totalAmount?`$${wo.totalAmount}`:"—"}</div>
+                {pmtStatus==="partial"&&payments[wo.id]?.amountPaid&&<div style={{ fontSize:11,color:"var(--text3)" }}>${payments[wo.id].amountPaid} paid</div>}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
+  );
+}
+
+function PaymentPanel({ wo, pmt, onUpdate }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ status: pmt.status||"unpaid", method: pmt.method||"", amountPaid: pmt.amountPaid||"", note: pmt.note||"", paidDate: pmt.paidDate||new Date().toISOString().slice(0,10) });
+  const METHODS = ["Cash","Check","Card","Zelle","Venmo","CashApp","ACH","Other"];
+  const total = parseFloat(wo.totalAmount)||0;
+  const paid = parseFloat(form.amountPaid)||0;
+  const remaining = Math.max(0, total - paid);
+
+  function handleSave() {
+    const data = { ...form, amountPaid: form.amountPaid, updatedAt: new Date().toISOString() };
+    // Auto-set status based on amount
+    if(form.status==="partial" && paid >= total && total > 0) data.status = "paid";
+    savePayment(wo.id, data);
+    setEditing(false);
+    onUpdate();
+  }
+
+  function markPaid() {
+    const data = { status:"paid", method: form.method||"Cash", amountPaid: wo.totalAmount, paidDate: new Date().toISOString().slice(0,10), note: form.note, updatedAt: new Date().toISOString() };
+    savePayment(wo.id, data);
+    setForm(p=>({...p,...data}));
+    onUpdate();
+  }
+
+  function markUnpaid() {
+    const data = { status:"unpaid", method:"", amountPaid:"", paidDate:"", note:"", updatedAt: new Date().toISOString() };
+    savePayment(wo.id, data);
+    setForm(p=>({...p,...data}));
+    onUpdate();
+  }
+
+  const pmtStatus = pmt.status||"unpaid";
+
+  return (
+    <Card style={{ padding:"16px 18px",border:`1px solid ${pmtStatus==="paid"?"var(--green-bd)":pmtStatus==="partial"?"var(--amber-bd)":"var(--red-bd)"}`,background:pmtStatus==="paid"?"rgba(0,196,140,0.05)":pmtStatus==="partial"?"rgba(245,158,11,0.05)":"rgba(255,77,77,0.05)" }}>
+      <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:editing?16:0 }}>
+        <div style={{ fontSize:13,fontWeight:700,fontFamily:"var(--display)" }}>
+          {pmtStatus==="paid"?"✅ Payment Received":pmtStatus==="partial"?"◐ Partial Payment":"💳 Payment"}
+        </div>
+        {!editing&&(
+          <div style={{ display:"flex",gap:8 }}>
+            {pmtStatus!=="paid"&&<Btn small onClick={markPaid}>✓ Mark Paid</Btn>}
+            {pmtStatus==="paid"&&<Btn small variant="secondary" onClick={markUnpaid}>Mark Unpaid</Btn>}
+            <Btn small variant="secondary" onClick={()=>setEditing(true)}>Edit</Btn>
+          </div>
+        )}
+      </div>
+
+      {!editing&&pmtStatus!=="unpaid"&&(
+        <div style={{ display:"flex",gap:16,flexWrap:"wrap",marginTop:10 }}>
+          {pmt.amountPaid&&<div><div style={{ fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2 }}>Amount Paid</div><div style={{ fontSize:16,fontFamily:"var(--mono)",fontWeight:700,color:"var(--green)" }}>${pmt.amountPaid}</div></div>}
+          {remaining>0&&<div><div style={{ fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2 }}>Remaining</div><div style={{ fontSize:16,fontFamily:"var(--mono)",fontWeight:700,color:"var(--red)" }}>${remaining.toFixed(2)}</div></div>}
+          {pmt.method&&<div><div style={{ fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2 }}>Method</div><div style={{ fontSize:14,fontWeight:600 }}>{pmt.method}</div></div>}
+          {pmt.paidDate&&<div><div style={{ fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2 }}>Date Paid</div><div style={{ fontSize:14,fontWeight:600 }}>{fmtDate(pmt.paidDate)}</div></div>}
+          {pmt.note&&<div style={{ width:"100%" }}><div style={{ fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2 }}>Note</div><div style={{ fontSize:13,color:"var(--text2)" }}>{pmt.note}</div></div>}
+        </div>
+      )}
+
+      {editing&&(
+        <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
+          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
+            <FormField label="Status">
+              <select style={inputStyle} value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))}>
+                <option value="unpaid">Unpaid</option>
+                <option value="partial">Partial Payment</option>
+                <option value="paid">Paid in Full</option>
+              </select>
+            </FormField>
+            <FormField label="Payment Method">
+              <select style={inputStyle} value={form.method} onChange={e=>setForm(p=>({...p,method:e.target.value}))}>
+                <option value="">Select…</option>
+                {METHODS.map(m=><option key={m}>{m}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Amount Paid">
+              <input style={inputStyle} type="number" min="0" step="0.01" value={form.amountPaid} onChange={e=>setForm(p=>({...p,amountPaid:e.target.value}))} placeholder={wo.totalAmount||"0.00"} />
+            </FormField>
+            <FormField label="Date Paid">
+              <input style={inputStyle} type="date" value={form.paidDate} onChange={e=>setForm(p=>({...p,paidDate:e.target.value}))} />
+            </FormField>
+          </div>
+          <FormField label="Note (optional)">
+            <input style={inputStyle} value={form.note} onChange={e=>setForm(p=>({...p,note:e.target.value}))} placeholder="e.g. Check #1042" />
+          </FormField>
+          <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
+            <Btn small variant="secondary" onClick={()=>setEditing(false)}>Cancel</Btn>
+            <Btn small onClick={handleSave}>Save Payment</Btn>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 
