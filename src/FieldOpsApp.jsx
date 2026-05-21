@@ -300,12 +300,12 @@ function Dashboard() {
         <h2 style={{ fontSize:22,fontFamily:"var(--display)",fontWeight:700,marginBottom:4,letterSpacing:"-0.03em",color:"var(--text1)" }}>Good morning, {user?.name?.split(" ")[0]} 👋</h2>
         <p style={{ fontSize:13,color:"var(--text3)" }}>Here's what's happening at {user?.company?.name} today.</p>
       </div>
-      <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:24 }}>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12,marginBottom:24 }}>
         {statCards.map((k,i)=>(
-          <div key={i} className={`fade-in s${i+1}`} style={{ background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:"20px 22px",position:"relative",overflow:"hidden" }}>
-            <div style={{ position:"absolute",top:0,right:0,width:80,height:80,background:`radial-gradient(circle at top right,${k.glow},transparent 70%)`,pointerEvents:"none" }} />
-            <div style={{ fontSize:11,color:"var(--text3)",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:12,fontFamily:"var(--sans)" }}>{k.label}</div>
-            <div style={{ fontSize:28,fontFamily:"var(--mono)",fontWeight:600,color:k.color,lineHeight:1,letterSpacing:"-0.02em" }}>{k.val}</div>
+          <div key={i} className={`fade-in s${i+1}`} style={{ background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:"16px 18px",position:"relative",overflow:"hidden" }}>
+            <div style={{ position:"absolute",top:0,right:0,width:60,height:60,background:`radial-gradient(circle at top right,${k.glow},transparent 70%)`,pointerEvents:"none" }} />
+            <div style={{ fontSize:10,color:"var(--text3)",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:10,fontFamily:"var(--sans)" }}>{k.label}</div>
+            <div style={{ fontSize:22,fontFamily:"var(--mono)",fontWeight:600,color:k.color,lineHeight:1,letterSpacing:"-0.02em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{k.val}</div>
           </div>
         ))}
       </div>
@@ -1247,9 +1247,14 @@ const PAGE_TITLES_MAP = {"/":"Dashboard","/dispatch":"Dispatch","/customers":"Cu
 const MOBILE_NAV = [
   {id:"/",icon:"⊞",label:"Home"},
   {id:"/jobs",icon:"🔧",label:"Jobs"},
+  {id:"/customers",icon:"👥",label:"Customers"},
+  {id:"/dispatch",icon:"📡",label:"Dispatch"},
   {id:"/invoices",icon:"📄",label:"Work Orders"},
   {id:"/estimates",icon:"📝",label:"Estimates"},
   {id:"/pricebook",icon:"💲",label:"Pricebook"},
+  {id:"/templates",icon:"📌",label:"Templates"},
+  {id:"/team",icon:"👷",label:"Team"},
+  {id:"/reports",icon:"📊",label:"Reports"},
 ];
 
 function ReportsScreen() {
@@ -1533,8 +1538,8 @@ function AppShell() {
           <span style={{ fontSize:12,fontFamily:"var(--display)",fontWeight:600,color:"#8899BB",whiteSpace:"nowrap" }}>{PAGE_TITLES_MAP[route]||""}</span>
         </div>
         <div style={{ flex:1,overflow:"auto",display:"flex",flexDirection:"column",paddingBottom:60 }}>{content}</div>
-        <div style={{ position:"fixed",bottom:0,left:0,right:0,height:60,background:"var(--nav-bg)",borderTop:"1px solid var(--nav-border)",display:"flex",alignItems:"center",justifyContent:"space-around",zIndex:1000 }}>
-          {MOBILE_NAV.map(item=><button key={item.id} onClick={()=>navigate(item.id)} style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"none",border:"none",color:route===item.id?"#fff":"var(--nav-text)",cursor:"pointer",padding:"4px 8px",borderRadius:8,minWidth:52,transition:"color .15s" }}><span style={{ fontSize:22,lineHeight:1 }}>{item.icon}</span><span style={{ fontSize:9,fontWeight:route===item.id?700:400,letterSpacing:"0.04em",textTransform:"uppercase" }}>{item.label}</span></button>)}
+        <div style={{ position:"fixed",bottom:0,left:0,right:0,background:"var(--nav-bg)",borderTop:"1px solid var(--nav-border)",display:"flex",alignItems:"center",overflowX:"auto",zIndex:1000,WebkitOverflowScrolling:"touch",scrollbarWidth:"none" }}>
+          {MOBILE_NAV.map(item=><button key={item.id} onClick={()=>navigate(item.id)} style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"none",border:"none",color:route===item.id?"#fff":"var(--nav-text)",cursor:"pointer",padding:"10px 14px",borderRadius:0,minWidth:60,flexShrink:0,transition:"color .15s",borderTop:route===item.id?"2px solid var(--blue)":"2px solid transparent" }}><span style={{ fontSize:20,lineHeight:1 }}>{item.icon}</span><span style={{ fontSize:9,fontWeight:route===item.id?700:400,letterSpacing:"0.04em",textTransform:"uppercase",whiteSpace:"nowrap" }}>{item.label}</span></button>)}
         </div>
       </div>
     );
