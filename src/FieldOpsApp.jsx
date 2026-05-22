@@ -358,12 +358,14 @@ function CustomerDetail({ customer, onBack, onDelete, onUpdate }) {
       const updatedNotes = newVal
         ? (currentNotes.includes("[MAINTENANCE]") ? currentNotes : ("[MAINTENANCE] " + currentNotes).trim())
         : currentNotes.replace("[MAINTENANCE]", "").trim();
+      console.log("[FieldOps] Saving maintenance:", { customerId: customer.id, newVal, updatedNotes });
       await apiFetch(`/customers/${customer.id}`, { method:"PATCH", body:JSON.stringify({ notes: updatedNotes }) });
+      console.log("[FieldOps] Maintenance saved OK");
       setNotes(updatedNotes);
       setMaintenance(newVal);
-      // Notify parent so list updates too
       if(onUpdate) onUpdate({ ...customer, notes: updatedNotes });
     } catch(e) {
+      console.error("[FieldOps] Maintenance save failed:", e.message);
       alert("Could not save maintenance status: " + e.message);
     }
     setTogglingMaint(false);
