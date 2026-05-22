@@ -42,14 +42,14 @@ async function fetchWorkOrders(params = "") {
 }
 async function saveWorkOrder(wo) {
   try {
-    const payload = { wo_number:wo.wo||wo.wo_number||String(Date.now()), job_id:wo.jobId||null, customer_id:wo.customerId||null, date:wo.date||null, customer:wo.customer||null, billing_address:wo.billingAddress||null, phone:wo.phone||null, cell:wo.cell||null, email:wo.email||null, complaint:wo.complaint||null, worked_by:wo.workedBy||null, unit_address:wo.unitAddress||null, unit_phone:wo.unitPhone||null, unit_cell:wo.unitCell||null, job_types:wo.jobTypes||[], equipment:wo.equipment||[], technician:wo.technician||null, time_in:wo.timeIn||null, time_out:wo.timeOut||null, travel_time:wo.travelTime||null, reg_hrs:wo.regHrs||null, ot_hrs:wo.otHrs||null, rate:wo.rate||null, amount:wo.amount||null, checklist:wo.checklist||[], description_of_work:wo.descriptionOfWork||null, recommendations:wo.recommendations||null, materials:wo.materials||[], service_type:wo.serviceType||[], total_amount:wo.totalAmount||null, print_name:wo.printName||null, signature:wo.signature||null, sign_date:wo.signDate||null };
+    const payload = { wo_number:wo.wo||wo.wo_number||String(Date.now()), job_id:wo.jobId||null, customer_id:wo.customerId||null, date:wo.date||null, customer:wo.customer||null, billing_address:wo.billingAddress||null, phone:wo.phone||null, cell:wo.cell||null, email:wo.email||null, complaint:wo.complaint||null, worked_by:wo.workedBy||null, unit_address:wo.unitAddress||null, unit_phone:wo.unitPhone||null, unit_cell:wo.unitCell||null, job_types:wo.jobTypes||[], equipment:wo.equipment||[], technician:wo.technician||null, time_in:wo.timeIn||null, time_out:wo.timeOut||null, travel_time:wo.travelTime||null, reg_hrs:wo.regHrs||null, ot_hrs:wo.otHrs||null, rate:wo.rate||null, amount:wo.amount||null, checklist:wo.checklist||[], description_of_work:wo.descriptionOfWork||null, recommendations:wo.recommendations||null, materials:wo.materials||[], service_type:wo.serviceType||[], total_amount:wo.totalAmount||null, print_name:wo.printName||null, signature:wo.signature||null, sign_date:wo.signDate||null, payment_method:wo.paymentMethod||null, check_number:wo.checkNumber||null };
     const saved = await apiFetch("/work-orders", { method:"POST", body:JSON.stringify(payload) });
     return normalizeWO(saved);
   } catch(e) { console.error("WO save failed:", e); const list=loadWorkOrders(); const idx=list.findIndex(w=>w.wo===wo.wo); if(idx>=0)list[idx]=wo;else list.unshift(wo); cacheWorkOrders(list); return wo; }
 }
 async function deleteWorkOrder(id) { try { await apiFetch(`/work-orders/${id}`, { method:"DELETE" }); } catch(e) { console.error(e); } }
 function normalizeWO(w) {
-  return { id:w.id, wo:w.wo_number||w.wo, date:w.date, customer:w.customer, customerId:w.customer_id||w.customerId, jobId:w.job_id||w.jobId, billingAddress:w.billing_address||w.billingAddress, phone:w.phone, cell:w.cell, email:w.email, complaint:w.complaint, workedBy:w.worked_by||w.workedBy, unitAddress:w.unit_address||w.unitAddress, unitPhone:w.unit_phone||w.unitPhone, unitCell:w.unit_cell||w.unitCell, jobTypes:w.job_types||w.jobTypes||[], equipment:w.equipment||[], technician:w.technician, timeIn:w.time_in||w.timeIn, timeOut:w.time_out||w.timeOut, travelTime:w.travel_time||w.travelTime, regHrs:w.reg_hrs||w.regHrs, otHrs:w.ot_hrs||w.otHrs, rate:w.rate, amount:w.amount, checklist:w.checklist||[], descriptionOfWork:w.description_of_work||w.descriptionOfWork, recommendations:w.recommendations, materials:w.materials||[], serviceType:w.service_type||w.serviceType||[], totalAmount:w.total_amount||w.totalAmount, printName:w.print_name||w.printName, signature:w.signature, signDate:w.sign_date||w.signDate, savedAt:w.created_at||w.savedAt };
+  return { id:w.id, wo:w.wo_number||w.wo, date:w.date, customer:w.customer, customerId:w.customer_id||w.customerId, jobId:w.job_id||w.jobId, billingAddress:w.billing_address||w.billingAddress, phone:w.phone, cell:w.cell, email:w.email, complaint:w.complaint, workedBy:w.worked_by||w.workedBy, unitAddress:w.unit_address||w.unitAddress, unitPhone:w.unit_phone||w.unitPhone, unitCell:w.unit_cell||w.unitCell, jobTypes:w.job_types||w.jobTypes||[], equipment:w.equipment||[], technician:w.technician, timeIn:w.time_in||w.timeIn, timeOut:w.time_out||w.timeOut, travelTime:w.travel_time||w.travelTime, regHrs:w.reg_hrs||w.regHrs, otHrs:w.ot_hrs||w.otHrs, rate:w.rate, amount:w.amount, checklist:w.checklist||[], descriptionOfWork:w.description_of_work||w.descriptionOfWork, recommendations:w.recommendations, materials:w.materials||[], serviceType:w.service_type||w.serviceType||[], totalAmount:w.total_amount||w.totalAmount, printName:w.print_name||w.printName, signature:w.signature, signDate:w.sign_date||w.signDate, savedAt:w.created_at||w.savedAt, paymentMethod:w.payment_method||w.paymentMethod||null, checkNumber:w.check_number||w.checkNumber||null };
 }
 
 const JobContext = createContext(null);
@@ -1453,15 +1453,23 @@ function ReportsScreen() {
   const statusCounts={};jobs.forEach(j=>{statusCounts[j.status]=(statusCounts[j.status]||0)+1;});
   const statusColors={completed:"#10B981",scheduled:"#3B82F6",pending:"#F59E0B",cancelled:"#EF4444","in-progress":"#8B5CF6"};
 
-  // Payment breakdown - check both by ID and by WO number
+  // Payment breakdown - server data first (syncs across devices), localStorage as fallback
   const payments = loadPayments();
-  function getPaymentForWO(wo) {
-    // Try by id first, then by wo_number/wo
-    return payments[wo.id] || payments[wo.wo_number] || payments[wo.wo] || null;
+  function getMethod(wo) {
+    if(wo.paymentMethod) return wo.paymentMethod;
+    if(wo.payment_method) return wo.payment_method;
+    const p = payments[wo.id] || payments[wo.wo_number] || payments[wo.wo];
+    return p?.method || null;
   }
-  const cashWOs = workOrders.filter(wo=>{ const p=getPaymentForWO(wo); return p?.method==="Cash" || wo.paymentMethod==="Cash"; });
-  const checkWOs = workOrders.filter(wo=>{ const p=getPaymentForWO(wo); return p?.method==="Check" || wo.paymentMethod==="Check"; });
-  const squareWOs = workOrders.filter(wo=>{ const p=getPaymentForWO(wo); return p?.method==="Square" || wo.paymentMethod==="Square"; });
+  function getCheckNum(wo) {
+    if(wo.checkNumber) return wo.checkNumber;
+    if(wo.check_number) return wo.check_number;
+    const p = payments[wo.id] || payments[wo.wo_number] || payments[wo.wo];
+    return p?.checkNumber || null;
+  }
+  const cashWOs = workOrders.filter(wo => getMethod(wo) === "Cash");
+  const checkWOs = workOrders.filter(wo => getMethod(wo) === "Check");
+  const squareWOs = workOrders.filter(wo => getMethod(wo) === "Square");
 
   const filteredWOs = paymentFilter==="Cash"?cashWOs:paymentFilter==="Check"?checkWOs:paymentFilter==="Square"?squareWOs:[];
 
@@ -1505,7 +1513,7 @@ function ReportsScreen() {
                       <div key={wo.id} style={{ background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
                         <div>
                           <div style={{ fontSize:13,fontWeight:600 }}>{wo.customer||wo.customer_name||"—"}</div>
-                          <div style={{ fontSize:11,color:"var(--text3)" }}>WO#{wo.wo_number||wo.wo||"—"} · {wo.date||fmtDate(wo.created_at)||"—"}{getPaymentForWO(wo)?.checkNumber?` · Check #${getPaymentForWO(wo).checkNumber}`:wo.checkNumber?` · Check #${wo.checkNumber}`:""}</div>
+                          <div style={{ fontSize:11,color:"var(--text3)" }}>WO#{wo.wo_number||wo.wo||"—"} · {wo.date||fmtDate(wo.created_at)||"—"}{getCheckNum(wo)?` · Check #${getCheckNum(wo)}`:""}</div>
                         </div>
                         <div style={{ fontSize:15,fontFamily:"var(--mono)",fontWeight:700,color:"var(--green)" }}>{fmt$(parseFloat(wo.total_amount||wo.totalAmount)||0)}</div>
                       </div>
