@@ -427,6 +427,28 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
 
           {/* MATERIALS */}
           <div style={s.section}>
+            {/* Diagnostic Fee Quick-Add */}
+            {!isReadOnly && (
+              <div style={{ marginBottom: 12, padding: "10px 12px", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 8 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#1E40AF", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>⚡ Diagnostic Fee</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {[{label:"Diagnostic Fee — $79", price:"79.00"},{label:"Diagnostic Fee — $89", price:"89.00"}].map(fee=>(
+                    <button key={fee.price} onClick={()=>{
+                      const mats = [...form.materials];
+                      const emptyIdx = mats.findIndex(m => !m.description && !m.qty);
+                      const idx = emptyIdx >= 0 ? emptyIdx : mats.length;
+                      const price = woDiscount ? (parseFloat(fee.price)*0.85).toFixed(2) : fee.price;
+                      const newRow = { qty:"1", description:"Diagnostic Fee"+(woDiscount?" (15% off)":""), unitPrice:price, amount:price };
+                      if(idx >= mats.length) mats.push(newRow); else mats[idx] = newRow;
+                      const total = mats.reduce((sum,m)=>sum+(parseFloat(m.amount)||0),0);
+                      setForm(p=>({...p, materials:mats, totalAmount:total.toFixed(2)}));
+                    }} style={{ fontSize:12, fontWeight:700, padding:"7px 16px", borderRadius:7, border:"1.5px solid #1a3a6b", background:"#1a3a6b", color:"#fff", cursor:"pointer" }}>
+                      {fee.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <div style={{ ...s.sectionHeader, margin: 0 }}>Materials</div>
               {!isReadOnly && <div style={{ display:"flex", gap:8, alignItems:"center" }}>
