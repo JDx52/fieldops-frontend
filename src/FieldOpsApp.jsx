@@ -49,9 +49,7 @@ async function saveWorkOrder(wo) {
       desc = desc ? desc + "\n" + tag : tag;
     }
     const payload = { wo_number:wo.wo||wo.wo_number||String(Date.now()), job_id:wo.jobId||null, customer_id:wo.customerId||null, date:wo.date||null, customer:wo.customer||null, billing_address:wo.billingAddress||null, phone:wo.phone||null, cell:wo.cell||null, email:wo.email||null, complaint:wo.complaint||null, worked_by:wo.workedBy||null, unit_address:wo.unitAddress||null, unit_phone:wo.unitPhone||null, unit_cell:wo.unitCell||null, job_types:wo.jobTypes||[], equipment:wo.equipment||[], technician:wo.technician||null, time_in:wo.timeIn||null, time_out:wo.timeOut||null, travel_time:wo.travelTime||null, reg_hrs:wo.regHrs||null, ot_hrs:wo.otHrs||null, rate:wo.rate||null, amount:wo.amount||null, checklist:wo.checklist||[], description_of_work:desc||null, recommendations:wo.recommendations||null, materials:wo.materials||[], service_type:wo.serviceType||[], total_amount:wo.totalAmount||null, print_name:wo.printName||null, signature:wo.signature||null, sign_date:wo.signDate||null, payment_method:wo.paymentMethod||null, check_number:wo.checkNumber||null };
-    console.log("[FieldOps] saveWorkOrder payload:", {payment_method:payload.payment_method, check_number:payload.check_number, description_of_work:payload.description_of_work});
     const saved = await apiFetch("/work-orders", { method:"POST", body:JSON.stringify(payload) });
-    console.log("[FieldOps] saveWorkOrder response:", {payment_method:saved?.payment_method, description_of_work:saved?.description_of_work});
     return normalizeWO(saved);
   } catch(e) { console.error("WO save failed:", e); const list=loadWorkOrders(); const idx=list.findIndex(w=>w.wo===wo.wo); if(idx>=0)list[idx]=wo;else list.unshift(wo); cacheWorkOrders(list); return wo; }
 }
@@ -63,7 +61,7 @@ function normalizeWO(w) {
   const checkNum = w.check_number||w.checkNumber||(payTag?payTag[2]:null)||null;
   const cleanDesc = desc.replace(/\[PAYMENT:[^\]]*\]/g,"").trim();
   // DEBUG - remove after testing
-  if(payMethod || w.payment_method) console.log("[FieldOps] normalizeWO payment:", {id:w.id, wo:w.wo_number, payment_method:w.payment_method, payTag:payTag?payTag[0]:null, payMethod});
+  if(payMethod || w.payment_method) {}
   return { id:w.id, wo:w.wo_number||w.wo, date:w.date, customer:w.customer, customerId:w.customer_id||w.customerId, jobId:w.job_id||w.jobId, billingAddress:w.billing_address||w.billingAddress, phone:w.phone, cell:w.cell, email:w.email, complaint:w.complaint, workedBy:w.worked_by||w.workedBy, unitAddress:w.unit_address||w.unitAddress, unitPhone:w.unit_phone||w.unitPhone, unitCell:w.unit_cell||w.unitCell, jobTypes:w.job_types||w.jobTypes||[], equipment:w.equipment||[], technician:w.technician, timeIn:w.time_in||w.timeIn, timeOut:w.time_out||w.timeOut, travelTime:w.travel_time||w.travelTime, regHrs:w.reg_hrs||w.regHrs, otHrs:w.ot_hrs||w.otHrs, rate:w.rate, amount:w.amount, checklist:w.checklist||[], descriptionOfWork:cleanDesc, recommendations:w.recommendations, materials:w.materials||[], serviceType:w.service_type||w.serviceType||[], totalAmount:w.total_amount||w.totalAmount, printName:w.print_name||w.printName, signature:w.signature, signDate:w.sign_date||w.signDate, savedAt:w.created_at||w.savedAt, paymentMethod:payMethod, checkNumber:checkNum };
 }
 
@@ -1461,7 +1459,7 @@ function ReportsScreen() {
   const { navigate } = useRouter();
   const [jobs,setJobs]=useState([]); const [workOrders,setWorkOrders]=useState([]); const [loading,setLoading]=useState(true);
   const [paymentFilter,setPaymentFilter]=useState(null); // null | 'Cash' | 'Check' | 'Square'
-  useEffect(()=>{ async function load(){try{const [j,wo]=await Promise.all([apiFetch("/jobs?limit=500").catch(()=>[]),apiFetch("/work-orders?limit=500").catch(()=>({data:[]}))]); setJobs(Array.isArray(j)?j:[]); setWorkOrders(Array.isArray(wo)?wo:Array.isArray(wo?.data)?wo.data:[]);} catch(e){console.error(e);} setLoading(false);} load();},[]);
+  useEffect(()=>{ async function load(){try{const [j,wo]=await Promise.all([apiFetch("/jobs?limit=500").catch(()=>[]),apiFetch("/work-orders?limit=500").catch(()=>[])]); setJobs(Array.isArray(j)?j:[]); const woRaw=Array.isArray(wo)?wo:Array.isArray(wo?.data)?wo.data:[]; setWorkOrders(woRaw.map(normalizeWO));} catch(e){console.error(e);} setLoading(false);} load();},[]);
   const months=[];
   for(let i=5;i>=0;i--){const d=new Date();d.setMonth(d.getMonth()-i);months.push({label:d.toLocaleString("default",{month:"short",year:"2-digit"}),month:d.getMonth(),year:d.getFullYear(),revenue:0,count:0});}
   workOrders.forEach(wo=>{const amt=parseFloat(wo.total_amount||wo.totalAmount||0);if(!amt)return;const d=new Date(wo.created_at||wo.saved_at||wo.savedAt||wo.createdAt);if(isNaN(d))return;const m=months.find(x=>x.month===d.getMonth()&&x.year===d.getFullYear());if(m){m.revenue+=amt;m.count++;}});
