@@ -1784,9 +1784,8 @@ function AppShell() {
       const jobId = wo.jobId||currentJob?.jobId;
       if(jobId){
         try {
-          const token = getToken();
-          await fetch(`${API_URL}/jobs/${jobId}/status`,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({status:"completed"})});
-        } catch(e){ console.error("Auto-complete failed:",e); }
+          await apiFetch(`/jobs/${jobId}/status`,{method:"PATCH",body:JSON.stringify({status:"completed"})});
+        } catch(e){ console.error("[FieldOps] Auto-complete failed:",e.message); }
       }
       setCurrentJob(null);
     }} />,
