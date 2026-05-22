@@ -60,9 +60,11 @@ function getToken() { return localStorage.getItem("fieldops_token"); }
 async function apiFetch(path, options = {}) {
   const token = getToken();
   const res = await fetch(`${API_URL}${path}`, { headers:{"Content-Type":"application/json",...(token?{Authorization:`Bearer ${token}`}:{}), ...options.headers}, ...options });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || "Request failed");
-  return data.data;
+  // Handle empty responses (204 No Content) gracefully
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!res.ok) throw new Error(data?.error?.message || data?.message || `Request failed (${res.status})`);
+  return data.data !== undefined ? data.data : data;
 }
 
 const AuthContext = createContext(null);
