@@ -358,12 +358,13 @@ function CustomerDetail({ customer, onBack, onDelete, onUpdate }) {
       const updatedNotes = newVal
         ? (currentNotes.includes("[MAINTENANCE]") ? currentNotes : ("[MAINTENANCE] " + currentNotes).trim())
         : currentNotes.replace("[MAINTENANCE]", "").trim();
-      console.log("[FieldOps] Saving maintenance:", { customerId: customer.id, newVal, updatedNotes });
       await apiFetch(`/customers/${customer.id}`, { method:"PATCH", body:JSON.stringify({ notes: updatedNotes }) });
-      console.log("[FieldOps] Maintenance saved OK");
-      setNotes(updatedNotes);
-      setMaintenance(newVal);
-      if(onUpdate) onUpdate({ ...customer, notes: updatedNotes });
+      // Fetch full customer back to confirm notes saved
+      const updated = await apiFetch(`/customers/${customer.id}`);
+      const finalNotes = updated?.notes || updatedNotes;
+      setNotes(finalNotes);
+      setMaintenance(isMaintenance({...customer, notes: finalNotes}));
+      if(onUpdate) onUpdate({ ...customer, notes: finalNotes });
     } catch(e) {
       console.error("[FieldOps] Maintenance save failed:", e.message);
       alert("Could not save maintenance status: " + e.message);
@@ -492,6 +493,10 @@ function CustomersScreen() {
   async function load(){setLoading(true);try{const d=await apiFetch(`/customers?limit=100${search?`&search=${encodeURIComponent(search)}`:""}`);setList(Array.isArray(d)?d:[]);}catch(e){console.error(e);}setLoading(false);}
   useEffect(()=>{load();},[search]);
   async function handleDelete(id){if(!window.confirm("Archive this customer?"))return;try{await apiFetch(`/customers/${id}`,{method:"DELETE"});setList(p=>p.filter(c=>c.id!==id));setSelected(null);}catch(e){alert(e.message);}}
+  async function handleSelect(c) {
+    // Fetch full customer record so notes field is available for maintenance check
+    try { const full = await apiFetch(`/customers/${c.id}`); setSelected(full||c); } catch { setSelected(c); }
+  }
   if(selected) return <CustomerDetail customer={selected} onBack={()=>setSelected(null)} onDelete={handleDelete} onUpdate={updated=>{ setList(p=>p.map(c=>c.id===updated.id?updated:c)); setSelected(updated); }} />;
   return (
     <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
@@ -502,7 +507,7 @@ function CustomersScreen() {
       </div>
       <div style={{ flex:1,overflowY:"auto" }}>
         {loading?<Spinner />:list.length===0?<EmptyState icon="👥" title="No customers yet" desc="Add your first customer" action={<Btn onClick={()=>setShowNew(true)}>+ New Customer</Btn>} />:list.map(c=><div key={c.id} style={{ padding:"14px 16px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,transition:"background .1s" }} onMouseEnter={e=>e.currentTarget.style.background="var(--surface2)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-          <div onClick={()=>setSelected(c)} style={{ flex:1,cursor:"pointer",minWidth:0 }}>
+          <div onClick={()=>handleSelect(c)} style={{ flex:1,cursor:"pointer",minWidth:0 }}>
             <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap" }}>
               <span style={{ fontSize:14,fontWeight:600 }}>{c.first_name} {c.last_name}</span>
               {isMaintenance(c)&&<span style={{ fontSize:10,fontWeight:700,background:"var(--green-lt)",color:"var(--green)",border:"1px solid var(--green-bd)",borderRadius:100,padding:"1px 8px",whiteSpace:"nowrap" }}>🔧 Maintenance</span>}
@@ -515,7 +520,7 @@ function CustomersScreen() {
           </div>
           <div style={{ display:"flex",gap:8,alignItems:"center",flexShrink:0 }}>
             <button onClick={e=>{e.stopPropagation();const msg=encodeURIComponent(`Jayson is trying to get his Google reviews up. If you have time, would you mind leaving a Google review he would really appreciate it. Thanks - 405 Heating and Air Conditioning https://g.page/r/CVTRHVvrhBTBEBM/review`);const phone=(c.phone||c.cell||"").replace(/\D/g,"");if(phone){window.open(`sms:${phone}?body=${msg}`);}else{alert("No phone number for this customer.");}}} style={{ fontSize:11,fontWeight:600,background:"var(--green-lt)",color:"var(--green)",border:"1px solid var(--green-bd)",borderRadius:6,padding:"4px 10px",cursor:"pointer",whiteSpace:"nowrap" }}>⭐ Review</button>
-            <span onClick={()=>setSelected(c)} style={{ color:"var(--text4)",fontSize:16,cursor:"pointer" }}>›</span>
+            <span onClick={()=>handleSelect(c)} style={{ color:"var(--text4)",fontSize:16,cursor:"pointer" }}>›</span>
           </div>
         </div>)}
       </div>
