@@ -490,7 +490,10 @@ function CustomerDetail({ customer, onBack, onDelete, onUpdate }) {
 
 function CustomersScreen() {
   const [list,setList]=useState([]); const [loading,setLoading]=useState(true); const [search,setSearch]=useState(""); const [selected,setSelected]=useState(null); const [showNew,setShowNew]=useState(false);
-  async function load(){setLoading(true);try{const d=await apiFetch(`/customers?limit=100${search?`&search=${encodeURIComponent(search)}`:""}`);setList(Array.isArray(d)?d:[]);}catch(e){console.error(e);}setLoading(false);}
+  async function load(){setLoading(true);try{const d=await apiFetch(`/customers?limit=100${search?`&search=${encodeURIComponent(search)}`:""}`); const customers=Array.isArray(d)?d:[];
+    // Fetch full details for each customer to get notes (for maintenance badge)
+    const full = await Promise.all(customers.map(c=>apiFetch(`/customers/${c.id}`).catch(()=>c)));
+    setList(full);}catch(e){console.error(e);}setLoading(false);}
   useEffect(()=>{load();},[search]);
   async function handleDelete(id){if(!window.confirm("Archive this customer?"))return;try{await apiFetch(`/customers/${id}`,{method:"DELETE"});setList(p=>p.filter(c=>c.id!==id));setSelected(null);}catch(e){alert(e.message);}}
   async function handleSelect(c) {
