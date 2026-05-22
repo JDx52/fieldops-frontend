@@ -453,7 +453,27 @@ export default function WorkOrder405({ prefill, onSave, readOnly }) {
               <div style={{ ...s.sectionHeader, margin: 0 }}>Materials</div>
               {!isReadOnly && <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                 <button onClick={() => setShowPricebook(true)} style={{ fontSize: 12, background: "#1a3a6b", color: "#fff", border: "none", borderRadius: 6, padding: "5px 14px", cursor: "pointer", fontWeight: 600 }}>📋 Browse Pricebook</button>
-                <button onClick={() => setWoDiscount(p=>!p)} style={{ fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 6, border: `1.5px solid ${woDiscount?"#B45309":"#ccc"}`, background: woDiscount?"#FFFBEB":"#fff", color: woDiscount?"#B45309":"#555", cursor: "pointer" }}>{woDiscount ? "✓ 15% OFF" : "% 15% Discount"}</button>
+                <button onClick={() => {
+                  const newDiscount = !woDiscount;
+                  setWoDiscount(newDiscount);
+                  // Apply/remove discount on all existing materials
+                  const mats = form.materials.map(m => {
+                    if(!m.description && !m.unitPrice) return m;
+                    const base = parseFloat(m.unitPrice)||0;
+                    if(base === 0) return m;
+                    // If turning on: apply 85%; if turning off: reverse (divide by 0.85)
+                    const newPrice = newDiscount
+                      ? (base * 0.85).toFixed(2)
+                      : (base / 0.85).toFixed(2);
+                    const desc = newDiscount
+                      ? m.description.replace(" (15% off)","") + " (15% off)"
+                      : m.description.replace(" (15% off)","");
+                    const qty = parseFloat(m.qty)||1;
+                    return { ...m, unitPrice:newPrice, amount:(parseFloat(newPrice)*qty).toFixed(2), description:desc };
+                  });
+                  const total = mats.reduce((sum,m)=>sum+(parseFloat(m.amount)||0),0);
+                  setForm(p=>({...p, materials:mats, totalAmount:total>0?total.toFixed(2):p.totalAmount}));
+                }} style={{ fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 6, border: `1.5px solid ${woDiscount?"#B45309":"#ccc"}`, background: woDiscount?"#FFFBEB":"#fff", color: woDiscount?"#B45309":"#555", cursor: "pointer" }}>{woDiscount ? "✓ 15% OFF" : "% 15% Discount"}</button>
               </div>}
             </div>
             {isMobile ? (
